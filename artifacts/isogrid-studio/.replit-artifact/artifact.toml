@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Isogrid Studio"
+version = "1.0.0"
+id = "artifacts/isogrid-studio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19357
+
+[services.development]
+run = "pnpm --filter @workspace/isogrid-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/isogrid-studio", "run", "build" ]
+publicDir = "artifacts/isogrid-studio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19357"
+BASE_PATH = "/"

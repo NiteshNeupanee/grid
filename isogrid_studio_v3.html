@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISOGRID STUDIO — Parametric Rib-Grid Design Tool</title>
+<meta name="description" content="Browser-based parametric isogrid design tool for aerospace and mechanical engineering.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== THEME VARIABLES ===== */
+:root{
+  /* Dark theme (default) */
+  --bg-root:#111210;--bg-panel:#1a1917;--bg-vp:#0e0d0c;--bg-input:#141311;
+  --border:#2e2c28;--border-h:#4a4640;
+  --text-1:#f0ede8;--text-2:#a09890;--text-3:#5a5450;
+  --accent:#e8a030;--accent-h:#f0b040;--accent-dim:rgba(232,160,48,.12);--accent-glow:rgba(232,160,48,.25);
+  --err:#e05040;--warn:#d4a020;--ok:#60b060;
+  --panel-bg:var(--bg-panel);
+  --f-ui:'Barlow','Outfit',-apple-system,sans-serif;
+  --f-cond:'Barlow Condensed','Outfit',-apple-system,sans-serif;
+  --f-mono:'JetBrains Mono','Fira Code',monospace;
+  --panel-w:310px;--hdr-h:48px;--stat-h:28px;--r:4px;
+  --shadow:0 4px 16px rgba(0,0,0,.5);
+  --theme-icon:'☽';
+}
+[data-theme="light"]{
+  --bg-root:#f2ede8;--bg-panel:#e8e2da;--bg-vp:#ede8e2;--bg-input:#ddd8d0;
+  --border:#c8c0b4;--border-h:#a89880;
+  --text-1:#1a1714;--text-2:#5a5048;--text-3:#a09088;
+  --accent:#b86010;--accent-h:#c87020;--accent-dim:rgba(184,96,16,.1);--accent-glow:rgba(184,96,16,.2);
+  --err:#c03828;--warn:#a07010;--ok:#388038;
+  --panel-bg:#ddd8d0;
+  --shadow:0 4px 16px rgba(0,0,0,.15);
+  --theme-icon:'☀';
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg-root);color:var(--text-1);font-family:var(--f-ui);font-size:13px;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-size:inherit}
+input,select{font-family:var(--f-mono);color:var(--text-1)}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* HEADER */
+#hdr{height:var(--hdr-h);min-height:var(--hdr-h);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--bg-panel);border-bottom:2px solid var(--border);z-index:20;position:relative}
+#hdr::after{content:'';position:absolute;bottom:-3px;left:0;width:100%;height:1px;background:linear-gradient(90deg,var(--accent) 0%,transparent 60%);opacity:.5}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.logo{font-family:var(--f-cond);font-weight:700;font-size:17px;letter-spacing:2.5px;color:var(--accent);text-transform:uppercase;line-height:1}
+.logo-mark{display:inline-block;width:20px;height:20px;border:2px solid var(--accent);transform:rotate(45deg);margin-right:4px;position:relative;flex-shrink:0}
+.logo-mark::after{content:'';position:absolute;inset:3px;background:var(--accent);transform:rotate(0deg)}
+.logo-sep{width:1px;height:18px;background:var(--border-h);margin:0 4px}
+.logo-s{font-size:10px;color:var(--text-3);font-weight:400;letter-spacing:.6px;font-family:var(--f-mono)}
+.hdr-r{display:flex;align-items:center;gap:8px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;transition:all .15s;font-family:var(--f-cond)}
+.btn-g{background:transparent;border:1px solid var(--border-h);color:var(--text-2)}
+.btn-g:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-g.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-p{background:var(--accent);color:var(--bg-root);font-weight:700;border:1px solid var(--accent)}
+.btn-p:hover{background:var(--accent-h);box-shadow:0 0 12px var(--accent-glow)}
+.btn-p:disabled{opacity:.35;cursor:not-allowed}
+
+/* Theme toggle */
+.btn-theme{width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border-h);background:transparent;color:var(--text-2);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;padding:0}
+.btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+
+.exp-g{position:relative}
+.exp-m{position:absolute;top:calc(100% + 6px);right:0;min-width:210px;background:var(--bg-panel);border:1px solid var(--border-h);border-radius:var(--r);padding:4px;display:none;z-index:100;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.exp-g.open .exp-m{display:block}
+.exp-m button{display:block;width:100%;text-align:left;padding:8px 12px;border-radius:3px;font-size:11px;font-family:var(--f-cond);font-weight:500;letter-spacing:.4px;text-transform:uppercase;color:var(--text-2);transition:all .1s}
+.exp-m button:hover{background:var(--accent-dim);color:var(--accent)}
+.exp-m-label{font-size:8px;font-family:var(--f-mono);color:var(--text-3);letter-spacing:1px;text-transform:uppercase;padding:6px 12px 3px;display:block;border-bottom:1px solid var(--border);margin-bottom:3px}
+
+/* MAIN */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* PANEL */
+#panel{width:var(--panel-w);min-width:var(--panel-w);background:var(--bg-panel);border-right:2px solid var(--border);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border-h) transparent;transition:background .25s}
+#panel::-webkit-scrollbar{width:4px}
+#panel::-webkit-scrollbar-thumb{background:var(--border-h);border-radius:2px}
+
+/* Section */
+.sec{border-bottom:1px solid var(--border)}
+.sec-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;transition:background .1s}
+.sec-h:hover{background:rgba(255,255,255,.03)}
+[data-theme="light"] .sec-h:hover{background:rgba(0,0,0,.04)}
+.sec-t{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-2);font-family:var(--f-cond)}
+.sec-c{font-size:8px;color:var(--accent);transition:transform .25s;opacity:.7}
+.sec.collapsed .sec-c{transform:rotate(-90deg)}
+.sec-b{overflow:hidden;transition:max-height .3s ease,opacity .2s;max-height:900px;opacity:1;padding:0 12px 12px}
+.sec.collapsed .sec-b{max-height:0;opacity:0;padding-bottom:0}
+
+/* Params */
+.pr{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.pl{flex:0 0 auto;width:80px;font-size:10px;color:var(--text-2);display:flex;align-items:center;gap:3px;font-weight:500}
+.pl .u{color:var(--text-3);font-family:var(--f-mono);font-size:9px;margin-left:1px}
+.ps{flex:1;-webkit-appearance:none;height:2px;border-radius:1px;background:var(--border-h);outline:none;cursor:pointer}
+.ps::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:2px;background:var(--accent);cursor:pointer;border:none;box-shadow:0 0 6px var(--accent-glow);transform:rotate(45deg)}
+.ps::-moz-range-thumb{width:13px;height:13px;border-radius:2px;background:var(--accent);cursor:pointer;border:none;transform:rotate(45deg)}
+.ps.err::-webkit-slider-thumb{background:var(--err)}
+.pi{width:52px;padding:4px 5px;text-align:right;font-size:10px;background:var(--bg-input);border:1px solid var(--border-h);border-radius:var(--r);color:var(--text-1);transition:border-color .15s}
+.pi:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-dim)}
+.pi.err{border-color:var(--err);color:var(--err)}
+.psel{width:100%;padding:6px 8px;font-size:10px;font-family:var(--f-mono);background:var(--bg-input);border:1px solid var(--border-h);border-radius:var(--r);color:var(--text-1);outline:none;margin-bottom:7px;cursor:pointer;transition:border-color .15s}
+.psel:focus{border-color:var(--accent)}
+
+/* Shape grid */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px}
+.sb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:7px 3px;border:1px solid var(--border-h);border-radius:var(--r);background:var(--bg-input);transition:all .15s;cursor:pointer;position:relative;overflow:hidden}
+.sb::before{content:'';position:absolute;inset:0;background:var(--accent);opacity:0;transition:opacity .15s}
+.sb:hover{border-color:var(--accent);transform:translateY(-1px)}
+.sb:hover::before{opacity:.04}
+.sb.active{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 10px var(--accent-glow)}
+.sb svg{width:26px;height:26px;stroke:var(--text-2);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s;position:relative}
+.sb.active svg,.sb:hover svg{stroke:var(--accent)}
+.sb span{font-size:8px;color:var(--text-3);font-weight:600;letter-spacing:.6px;text-transform:uppercase;font-family:var(--f-cond);position:relative;transition:color .15s}
+.sb.active span,.sb:hover span{color:var(--accent)}
+
+/* Radio */
+.rr{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.ri{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:var(--text-2);font-weight:500;transition:color .15s}
+.ri input{accent-color:var(--accent);width:11px;height:11px}
+.ri:hover{color:var(--text-1)}
+
+/* Section label inline */
+.sec-inline-label{font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-3);margin:4px 0 5px;display:block;font-family:var(--f-cond)}
+
+/* Preset cards */
+.pg{display:flex;flex-direction:column;gap:5px}
+.pc{padding:8px 10px;border:1px solid var(--border-h);border-radius:var(--r);background:var(--bg-input);cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.pc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:0;transition:opacity .15s}
+.pc:hover{border-color:var(--accent);transform:translateX(2px)}
+.pc:hover::before{opacity:1}
+.pc h4{font-size:11px;font-weight:700;color:var(--text-1);margin-bottom:2px;font-family:var(--f-cond);letter-spacing:.5px;text-transform:uppercase}
+.pc p{font-family:var(--f-mono);font-size:9px;color:var(--text-3);line-height:1.5}
+
+/* Material info */
+.mat-info{display:flex;gap:5px;font-family:var(--f-mono);font-size:9px;color:var(--text-2);margin-top:3px;margin-bottom:5px;flex-wrap:wrap}
+.mat-info span{background:var(--bg-root);padding:2px 6px;border-radius:2px;border:1px solid var(--border-h);color:var(--text-2)}
+
+/* Tooltip */
+.tip{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:1px;font-size:8px;font-weight:700;color:var(--accent);border:1px solid var(--accent);opacity:.6;cursor:help;position:relative;flex-shrink:0;font-family:var(--f-cond)}
+.tip:hover{opacity:1}
+.tip:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:var(--bg-panel);border:1px solid var(--border-h);color:var(--text-1);font-size:10px;font-weight:400;padding:7px 10px;border-radius:var(--r);width:190px;z-index:50;pointer-events:none;line-height:1.5;font-family:var(--f-ui);box-shadow:var(--shadow);white-space:normal;font-style:normal}
+
+/* VIEWPORT */
+.vp{flex:1;position:relative;background:var(--bg-vp);overflow:hidden}
+.vp canvas{display:block;width:100%!important;height:100%!important}
+.vp-label{position:absolute;top:10px;left:12px;z-index:5;font-family:var(--f-cond);font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:2px;text-transform:uppercase;pointer-events:none;opacity:.6}
+.vp-tb{position:absolute;top:10px;right:10px;z-index:5;display:flex;gap:4px}
+.vp-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg-panel);border:1px solid var(--border-h);border-radius:var(--r);font-size:12px;color:var(--text-2);transition:all .12s;opacity:.85}
+.vp-btn:hover{border-color:var(--accent);color:var(--accent);opacity:1;box-shadow:0 0 8px var(--accent-glow)}
+.vp-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);opacity:1}
+
+/* Drop zone */
+#drop-zone{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg-vp);border:2px dashed var(--border-h);transition:all .2s;cursor:pointer}
+#drop-zone.hidden{display:none}
+#drop-zone.dragover{border-color:var(--accent);background:var(--accent-dim)}
+.drop-icon{font-size:36px;opacity:.5;filter:sepia(1) hue-rotate(-10deg)}
+.drop-title{font-size:14px;font-weight:700;color:var(--text-2);font-family:var(--f-cond);letter-spacing:1px;text-transform:uppercase}
+.drop-hint{font-size:10px;color:var(--text-3);font-family:var(--f-mono)}
+.drop-formats{display:flex;gap:6px;margin-top:4px}
+.drop-fmt{font-size:9px;font-family:var(--f-mono);color:var(--accent);border:1px solid var(--accent-dim);padding:2px 6px;border-radius:2px;opacity:.7}
+
+/* Face hint */
+.face-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:6;font-family:var(--f-cond);font-size:13px;font-weight:600;letter-spacing:.5px;color:var(--accent);background:var(--bg-panel);padding:12px 22px;border-radius:var(--r);border:1px solid var(--border-h);pointer-events:none;display:none;text-align:center;line-height:1.6;box-shadow:var(--shadow)}
+.face-hint.visible{display:block}
+
+/* Face info */
+.face-info{position:absolute;top:36px;left:12px;z-index:5;font-family:var(--f-mono);font-size:9px;color:var(--text-3);line-height:1.7;pointer-events:none}
+.face-info .fi-val{color:var(--accent);font-weight:600}
+
+/* Loading */
+.ld-ov{position:absolute;inset:0;z-index:15;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(14,13,12,.92)}
+[data-theme="light"] .ld-ov{background:rgba(237,232,226,.92)}
+.ld-ov.visible{display:flex}
+.spinner{width:28px;height:28px;border:2px solid var(--border-h);border-top-color:var(--accent);border-radius:2px;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-text{font-family:var(--f-cond);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-2)}
+
+/* Metrics bar */
+#metrics{position:absolute;bottom:0;left:0;right:0;z-index:5;display:flex;gap:0;background:var(--bg-panel);border-top:2px solid var(--border)}
+.mc{flex:1;padding:7px 10px;background:var(--bg-panel);display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--border);transition:background .15s}
+.mc:last-child{border-right:none}
+.mc:hover{background:var(--bg-input)}
+.mc .ml{font-size:8px;color:var(--text-3);text-transform:uppercase;letter-spacing:.8px;font-weight:700;font-family:var(--f-cond)}
+.mc .mv{font-family:var(--f-mono);font-size:14px;color:var(--accent);font-weight:600;line-height:1}
+.sbar{height:2px;background:var(--border-h);border-radius:1px;margin-top:3px;overflow:hidden}
+.sfill{height:100%;background:var(--accent);border-radius:1px;transition:width .3s}
+
+/* Status bar */
+#stat{height:var(--stat-h);min-height:var(--stat-h);display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--bg-panel);border-top:1px solid var(--border);font-family:var(--f-mono);font-size:9px;color:var(--text-3)}
+.st-l,.st-r{display:flex;align-items:center;gap:14px}
+.st-dot{width:5px;height:5px;border-radius:1px;background:var(--ok);flex-shrink:0;transform:rotate(45deg)}
+.st-dot.idle{background:var(--text-3)}.st-dot.warn{background:var(--warn)}.st-dot.err{background:var(--err)}
+
+/* Notification */
+#notif{position:fixed;bottom:38px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg-panel);border:1px solid var(--border-h);border-left:3px solid var(--accent);color:var(--text-1);padding:9px 18px;border-radius:var(--r);font-size:11px;font-family:var(--f-cond);font-weight:600;letter-spacing:.4px;opacity:0;transition:all .25s;z-index:200;pointer-events:none;box-shadow:var(--shadow);max-width:400px;text-align:center}
+#notif.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+#notif.err{border-left-color:var(--err)}#notif.warn{border-left-color:var(--warn)}#notif.ok{border-left-color:var(--ok)}
+
+.gizmo{position:absolute;bottom:8px;right:8px;width:65px;height:65px;z-index:5;pointer-events:none;opacity:.7}
+.gizmo canvas{width:100%!important;height:100%!important}
+.hidden{display:none!important}
+.fade{transition:opacity .2s;opacity:1}.fading{opacity:.2}
+
+/* Panel section top padding */
+.sec-b{padding-top:8px}
+
+/* Buy Me a Momo */
+.btn-momo{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-h));color:var(--bg-root);border:none;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px var(--accent-glow);text-decoration:none;letter-spacing:.5px;font-family:var(--f-cond);text-transform:uppercase}
+.btn-momo:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--accent-glow);background:linear-gradient(135deg,var(--accent-h),var(--accent))}
+.btn-momo:active{transform:translateY(0)}
+.btn-momo .momo-icon{font-size:15px;line-height:1}
+
+/* Donation Modal */
+.donate-overlay{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fadeIn .25s ease}
+.donate-overlay.visible{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.donate-modal{background:var(--bg-panel);border:1px solid var(--border);border-radius:16px;padding:32px 36px;max-width:420px;width:90%;text-align:center;box-shadow:var(--shadow);animation:slideUp .3s ease;position:relative}
+.donate-modal .dm-emoji{font-size:56px;margin-bottom:12px;display:block;filter:drop-shadow(0 4px 12px var(--accent-glow))}
+.donate-modal h3{font-size:20px;font-weight:700;color:var(--text-1);margin-bottom:6px;font-family:var(--f-cond);letter-spacing:1px;text-transform:uppercase}
+.donate-modal .dm-sub{font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:20px;max-width:320px;margin-left:auto;margin-right:auto}
+.donate-modal .dm-sub strong{color:var(--accent);font-weight:600}
+.donate-modal .dm-actions{display:flex;flex-direction:column;gap:10px;align-items:center}
+.dm-btn-donate{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-h));color:var(--bg-root);border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px var(--accent-glow);width:100%;letter-spacing:.5px;font-family:var(--f-cond);text-transform:uppercase}
+.dm-btn-donate:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--accent-glow);background:linear-gradient(135deg,var(--accent-h),var(--accent))}
+.dm-btn-skip{background:none;border:1px solid var(--border-h);color:var(--text-2);padding:10px 28px;border-radius:12px;font-size:12px;cursor:pointer;transition:all .15s;width:100%;font-weight:500;font-family:var(--f-cond);text-transform:uppercase;letter-spacing:.5px}
+.dm-btn-skip:hover{border-color:var(--text-3);color:var(--text-1);background:rgba(255,255,255,.03)}
+[data-theme="light"] .dm-btn-skip:hover{background:rgba(0,0,0,.03)}
+.dm-divider{display:flex;align-items:center;gap:8px;width:100%;margin:4px 0;color:var(--text-3);font-size:9px;text-transform:uppercase;letter-spacing:1px}
+.dm-divider::before,.dm-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.dm-heart{position:absolute;top:12px;right:16px;font-size:10px;color:var(--text-3);font-family:var(--f-mono);letter-spacing:.3px}
+</style>
+</head>
+<body>
+<div id="app">
+<header id="hdr">
+  <div class="hdr-l">
+    <div class="logo-mark"></div>
+    <span class="logo">Isogrid Studio</span>
+    <span class="logo-sep"></span>
+    <span class="logo-s">v2 — Multi-Face Select</span>
+  </div>
+  <div class="hdr-r">
+    <a class="btn-momo" id="btn-momo" href="https://buymemomo.com/NiteshNeupane" target="_blank" rel="noopener" title="Support this project!"><span class="momo-icon">&#x1F95F;</span> Buy Me a Momo</a>
+    <button class="btn-theme" id="btn-theme" title="Toggle theme">☽</button>
+    <button class="btn btn-g" id="btn-load">⬡ Load Model</button>
+    <input type="file" id="file-in" accept=".step,.stp,.stl,.obj" hidden>
+    <div class="exp-g" id="exp-g">
+      <button class="btn btn-p" id="btn-exp" disabled>↓ Export ▾</button>
+      <div class="exp-m" id="exp-m">
+        <span class="exp-m-label">Export Format</span>
+        <button data-fmt="stl-bin">Grid STL — Binary</button>
+        <button data-fmt="stl-asc">Grid STL — ASCII</button>
+        <button data-fmt="stl-merged">Model + Grid STL</button>
+        <button data-fmt="step">STEP (.stp)</button>
+        <button data-fmt="obj">Wavefront OBJ</button>
+        <button data-fmt="json">Copy Params JSON</button>
+      </div>
+    </div>
+  </div>
+
+<!-- Donation Modal -->
+<div class="donate-overlay" id="donate-overlay">
+  <div class="donate-modal">
+    <span class="dm-heart">&#x2764; from Nepal</span>
+    <span class="dm-emoji">&#x1F95F;</span>
+    <h3>Enjoyed ISOGRID STUDIO?</h3>
+    <p class="dm-sub">This tool is <strong>100% free</strong> and built with love. If it saved you time, consider buying me a <strong>momo</strong> (Nepali dumpling) to fuel more open-source engineering tools!</p>
+    <div class="dm-actions">
+      <button class="dm-btn-donate" id="dm-donate">&#x1F95F; Buy Me a Momo</button>
+      <div class="dm-divider"><span>or</span></div>
+      <button class="dm-btn-skip" id="dm-skip">Continue to Download</button>
+    </div>
+  </div>
+</div>
+</header>
+<main id="main">
+  <div id="panel">
+    <!-- Grid Shape -->
+    <div class="sec"><div class="sec-h"><span class="sec-t">Grid Pattern</span><span class="sec-c">&#x25BC;</span></div><div class="sec-b">
+      <div class="sg" id="sg">
+        <div class="sb active" data-s="isogrid"><svg viewBox="0 0 32 28"><path d="M2 26L9 4 16 26M16 26L23 4 30 26M9 4L23 4M2 26L30 26"/></svg><span>Isogrid</span></div>
+        <div class="sb" data-s="square"><svg viewBox="0 0 32 32"><rect x="2" y="2" width="13" height="13"/><rect x="17" y="2" width="13" height="13"/><rect x="2" y="17" width="13" height="13"/><rect x="17" y="17" width="13" height="13"/></svg><span>Square</span></div>
+        <div class="sb" data-s="hex"><svg viewBox="0 0 36 32"><path d="M11 3L17 3 20 9 17 15 11 15 8 9Z"/><path d="M23 3L29 3 32 9 29 15 23 15 20 9Z"/><path d="M17 15L23 15 26 21 23 27 17 27 14 21Z"/></svg><span>Hex</span></div>
+        <div class="sb" data-s="rhombus"><svg viewBox="0 0 32 32"><path d="M16 2L30 16 16 30 2 16Z"/><line x1="16" y1="2" x2="16" y2="30"/><line x1="2" y1="16" x2="30" y2="16"/></svg><span>Rhombus</span></div>
+        <div class="sb" data-s="rectangular"><svg viewBox="0 0 32 32"><rect x="2" y="2" width="18" height="12"/><rect x="22" y="2" width="8" height="12"/><rect x="2" y="16" width="18" height="14"/><rect x="22" y="16" width="8" height="14"/></svg><span>Rect</span></div>
+        <div class="sb" data-s="orthogrid"><svg viewBox="0 0 32 32"><rect x="2" y="2" width="13" height="13"/><line x1="2" y1="2" x2="15" y2="15"/><line x1="15" y1="2" x2="2" y2="15"/><rect x="17" y="17" width="13" height="13"/><line x1="17" y1="17" x2="30" y2="30"/><line x1="30" y1="17" x2="17" y2="30"/></svg><span>Orthogrid</span></div>
+      </div>
+    </div></div>
+
+    <!-- Grid Geometry -->
+    <div class="sec"><div class="sec-h"><span class="sec-t">Grid Geometry</span><span class="sec-c">&#x25BC;</span></div><div class="sec-b">
+      <div class="pr"><span class="pl">Cell Size <span class="u">mm</span> <span class="tip" data-tip="L — Cell repeat distance.">?</span></span><input type="range" class="ps" id="sl-cs" min="2" max="200" value="25" step=".5"><input type="number" class="pi" id="in-cs" value="25" min="2" max="200" step=".5"></div>
+      <div class="pr"><span class="pl">Rib Width <span class="u">mm</span> <span class="tip" data-tip="b — Width of each rib web.">?</span></span><input type="range" class="ps" id="sl-rw" min=".5" max="30" value="2" step=".1"><input type="number" class="pi" id="in-rw" value="2" min=".5" max="30" step=".1"></div>
+      <div class="pr"><span class="pl">Rib Depth <span class="u">mm</span> <span class="tip" data-tip="h — Rib height above/below skin.">?</span></span><input type="range" class="ps" id="sl-rd" min=".5" max="50" value="8" step=".1"><input type="number" class="pi" id="in-rd" value="8" min=".5" max="50" step=".1"></div>
+      <div class="pr"><span class="pl">Skin <span class="u">mm</span> <span class="tip" data-tip="t — Base plate thickness.">?</span></span><input type="range" class="ps" id="sl-st" min=".5" max="20" value="1.5" step=".1"><input type="number" class="pi" id="in-st" value="1.5" min=".5" max="20" step=".1"></div>
+      <div style="margin-top:4px"><span class="sec-inline-label">Depth Mode</span>
+        <div class="rr"><label class="ri"><input type="radio" name="dm" value="raised" checked> Raised</label><label class="ri"><input type="radio" name="dm" value="recessed"> Recessed</label><label class="ri"><input type="radio" name="dm" value="both"> Both</label></div>
+      </div>
+    </div></div>
+
+    <!-- Pattern Options -->
+    <div class="sec"><div class="sec-h"><span class="sec-t">Pattern Options</span><span class="sec-c">&#x25BC;</span></div><div class="sec-b">
+      <div class="pr"><span class="pl">Rotation <span class="u">&#xB0;</span></span><input type="range" class="ps" id="sl-rot" min="0" max="360" value="0" step="1"><input type="number" class="pi" id="in-rot" value="0" min="0" max="360" step="1"></div>
+      <div style="margin-top:4px"><span class="sec-inline-label">Node Style</span>
+        <div class="rr"><label class="ri"><input type="radio" name="ns" value="none" checked> None</label><label class="ri"><input type="radio" name="ns" value="circle"> Circle</label><label class="ri"><input type="radio" name="ns" value="hex"> Hex</label></div>
+      </div>
+      <div class="pr" id="row-nd" style="opacity:.4;pointer-events:none"><span class="pl">Node &#xD8; <span class="u">mm</span></span><input type="range" class="ps" id="sl-nd" min="1" max="30" value="6" step=".5"><input type="number" class="pi" id="in-nd" value="6" min="1" max="30" step=".5"></div>
+    </div></div>
+
+    <!-- Material -->
+    <div class="sec"><div class="sec-h"><span class="sec-t">Material</span><span class="sec-c">&#x25BC;</span></div><div class="sec-b">
+      <select class="psel" id="mat-sel">
+        <optgroup label="Metals">
+          <option value="al6061" selected>Aluminum 6061-T6</option>
+          <option value="al7075">Aluminum 7075-T6</option>
+          <option value="ti6al4v">Titanium Ti-6Al-4V</option>
+          <option value="ss316">Stainless Steel 316L</option>
+          <option value="inconel">Inconel 718</option>
+        </optgroup>
+        <optgroup label="Polymers">
+          <option value="pla">PLA</option>
+          <option value="petg">PETG</option>
+          <option value="abs">ABS</option>
+          <option value="nylon">Nylon PA12 (SLS)</option>
+          <option value="cf_nylon">Carbon Fiber Nylon</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="custom">Custom…</option>
+        </optgroup>
+      </select>
+      <div class="mat-info" id="mat-info"><span>&#x3C1;: 2700 kg/m&#xB3;</span><span>&#x3C3;y: 276 MPa</span><span>E: 68.9 GPa</span></div>
+      <div id="custom-mat" class="hidden">
+        <div class="pr"><span class="pl">Density <span class="u">kg/m&#xB3;</span></span><input type="number" class="pi" id="in-dens" value="2700" min="100" max="25000" step="10" style="width:64px"></div>
+      </div>
+    </div></div>
+
+    <!-- Presets -->
+    <div class="sec"><div class="sec-h"><span class="sec-t">Presets</span><span class="sec-c">&#x25BC;</span></div><div class="sec-b">
+      <div class="pg">
+        <div class="pc" data-pr="nasa"><h4>&#x1F680; NASA Standard</h4><p>L=25 b=2 h=8 t=1.5mm</p></div>
+        <div class="pc" data-pr="light"><h4>&#x1FAB6; Lightweight</h4><p>L=40 b=1.5 h=6 t=1mm</p></div>
+        <div class="pc" data-pr="stiff"><h4>&#x1F529; Stiff Panel</h4><p>L=15 b=3 h=10 t=2.5mm</p></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div class="vp" id="vp">
+    <div class="vp-label" id="vp-label">ISOGRID STUDIO</div>
+    <canvas id="cv"></canvas>
+    <div id="drop-zone"><div class="drop-icon">⬡</div><div class="drop-title">Drop Model File Here</div><div class="drop-hint">or click "Load Model" in the toolbar</div><div class="drop-formats"><span class="drop-fmt">STEP</span><span class="drop-fmt">STL</span><span class="drop-fmt">OBJ</span></div></div>
+    <div class="face-hint" id="face-hint">Click a face to apply grid<br>Ctrl+Click to add/remove faces</div>
+    <div class="face-info hidden" id="face-info"></div>
+    <div class="ld-ov" id="ld-ov"><div class="spinner"></div><div class="ld-text">Loading…</div></div>
+    <div class="vp-tb"><button class="vp-btn" id="btn-clr" title="Clear Selection" style="font-size:10px;display:none">&#x2715;</button><button class="vp-btn" id="btn-wf" title="Wireframe">&#x25C7;</button><button class="vp-btn active" id="btn-gv" title="Toggle Grid">&#x25A6;</button></div>
+    <div id="metrics">
+      <div class="mc"><span class="ml">Mass</span><span class="mv" id="m-mass">—</span></div>
+      <div class="mc"><span class="ml">Open Area</span><span class="mv" id="m-open">—</span></div>
+      <div class="mc"><span class="ml">Rib Dens.</span><span class="mv" id="m-rib">—</span></div>
+      <div class="mc"><span class="ml">Stiffness &#x3B4;</span><span class="mv" id="m-stf">—</span><div class="sbar"><div class="sfill" id="stf-fill" style="width:0"></div></div></div>
+    </div>
+    <div class="gizmo" id="gizmo"></div>
+  </div>
+</main>
+<footer id="stat">
+  <div class="st-l"><span class="st-dot idle" id="st-dot"></span><span id="st-txt">Ready</span></div>
+  <div class="st-r"><span id="s-v">V:0</span><span id="s-t">T:0</span><span id="s-r">R:0</span></div>
+</footer>
+</div>
+<div id="notif"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+
+<script>
+/* ================================================================
+   ISOGRID STUDIO v2 — Multi-Face Selection & Grid Merge
+   ================================================================ */
+const D2R=Math.PI/180, MAX_SEGS=12000, DEBOUNCE=150;
+const $=id=>document.getElementById(id);
+
+// ==================== MATERIALS ====================
+const MATS={
+  al6061:{name:'Aluminum 6061-T6',density:2700,yield:276,E:68.9},
+  al7075:{name:'Aluminum 7075-T6',density:2810,yield:503,E:71.7},
+  ti6al4v:{name:'Titanium Ti-6Al-4V',density:4430,yield:880,E:114},
+  ss316:{name:'Stainless 316L',density:8000,yield:205,E:193},
+  inconel:{name:'Inconel 718',density:8190,yield:1035,E:200},
+  pla:{name:'PLA',density:1240,yield:50,E:3.5},
+  petg:{name:'PETG',density:1270,yield:50,E:2.0},
+  abs:{name:'ABS',density:1040,yield:40,E:2.3},
+  nylon:{name:'Nylon PA12',density:1010,yield:48,E:1.7},
+  cf_nylon:{name:'CF Nylon',density:1180,yield:85,E:7.5},
+  custom:{name:'Custom',density:2700,yield:276,E:70},
+};
+const PRESETS={
+  nasa:{cs:25,rw:2,rd:8,st:1.5,shape:'isogrid'},
+  light:{cs:40,rw:1.5,rd:6,st:1,shape:'isogrid'},
+  stiff:{cs:15,rw:3,rd:10,st:2.5,shape:'isogrid'},
+};
+
+// ==================== STATE ====================
+const S={
+  shape:'isogrid',cs:25,rw:2,rd:8,st:1.5,rot:0,dm:'raised',
+  ns:'none',nd:6,mat:'al6061',
+  fileName:'',modelLoaded:false,
+  selectedFaceIds:new Set(),
+  faceGroups:[],faceGeos:{},triToFace:null,
+  wireframe:false,gridVisible:true,
+  lastSegs:[],lastBounds:{minX:-50,maxX:50,minZ:-50,maxZ:50},
+};
+
+// ==================== THREE.JS ====================
+let renderer,scene,camera,controls;
+let gizmoR,gizmoS,gizmoC,camLight;
+let modelMesh=null,highlightMesh=null,selHighlights=[],gridGroup=null;
+let hoveredFace=-1,floorGrid=null;
+
+const highlightMat=new THREE.MeshBasicMaterial({color:0xe8a030,transparent:true,opacity:0.18,side:THREE.DoubleSide,depthWrite:false});
+const selHighlightMat=new THREE.MeshBasicMaterial({color:0xe8a030,transparent:true,opacity:0.26,side:THREE.DoubleSide,depthWrite:false});
+const ribMat=new THREE.MeshStandardMaterial({color:0xb0a090,roughness:.25,metalness:.75});
+const skinMat=new THREE.MeshStandardMaterial({color:0x8a7a6a,roughness:.2,metalness:.6,transparent:true,opacity:.7,side:THREE.DoubleSide});
+
+function initThree(){
+  const cv=$('cv');
+  renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(0x0e0d0c);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+
+  scene=new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xfff5e8,.5));
+  const d1=new THREE.DirectionalLight(0xfff5e8,.9);d1.position.set(80,120,60);scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xffe0a0,.4);d2.position.set(-60,80,-40);scene.add(d2);
+  const d3=new THREE.DirectionalLight(0xfff0d0,.4);d3.position.set(-40,-60,80);scene.add(d3);
+  const d4=new THREE.DirectionalLight(0xf0e8d8,.3);d4.position.set(60,-40,-80);scene.add(d4);
+  scene.add(new THREE.HemisphereLight(0xa08060,0x302820,.4));
+  camLight=new THREE.PointLight(0xffe0a0,.25,0);scene.add(camLight);
+  floorGrid=new THREE.GridHelper(400,80,0x2a2820,0x1e1c18);
+  floorGrid.material.transparent=true;floorGrid.material.opacity=.3;scene.add(floorGrid);
+
+  camera=new THREE.PerspectiveCamera(45,cv.clientWidth/cv.clientHeight||1,.1,5000);
+  camera.position.set(100,80,100);
+  controls=new THREE.OrbitControls(camera,cv);
+  controls.enableDamping=true;controls.dampingFactor=.08;
+
+  // Gizmo
+  const gc=document.createElement('canvas');gc.width=130;gc.height=130;$('gizmo').appendChild(gc);
+  gizmoR=new THREE.WebGLRenderer({canvas:gc,alpha:true,antialias:true});
+  gizmoR.setPixelRatio(Math.min(devicePixelRatio,2));gizmoR.setClearColor(0,0);gizmoR.setSize(65,65);
+  gizmoS=new THREE.Scene();gizmoC=new THREE.PerspectiveCamera(50,1,.1,100);gizmoC.position.set(0,0,3);
+  const ax=new THREE.AxesHelper(1);gizmoS.add(ax);
+  [0xff4444,0x44ff44,0x4488ff].forEach((c,i)=>{const g=new THREE.SphereGeometry(.08,8,8);const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:c}));m.position.setComponent(i,1.15);gizmoS.add(m)});
+
+  handleResize();
+  window.addEventListener('resize',handleResize);
+
+  // Mouse events for face selection
+  cv.addEventListener('mousemove',onMouseMove);
+  cv.addEventListener('click',onMouseClick);
+}
+function handleResize(){
+  const vp=$('vp');const w=vp.clientWidth,h=vp.clientHeight;
+  renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+
+// ==================== FACE DETECTION ====================
+// Connectivity-based: groups triangles by shared edges + similar normals
+// This correctly separates pockets, recesses, and distinct flat regions
+function detectFaces(geometry){
+  let geo=geometry;
+  if(geo.index) geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array;
+  const numTri=pos.length/9;
+
+  // Compute per-triangle normals and centroids
+  const triNormals=[];
+  const triCentroids=[];
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
+  for(let i=0;i<numTri;i++){
+    const o=i*9;
+    a.set(pos[o],pos[o+1],pos[o+2]);
+    b.set(pos[o+3],pos[o+4],pos[o+5]);
+    c.set(pos[o+6],pos[o+7],pos[o+8]);
+    const ab=b.clone().sub(a),ac=c.clone().sub(a);
+    const n=ab.cross(ac).normalize();
+    triNormals.push(n);
+    triCentroids.push(a.clone().add(b).add(c).divideScalar(3));
+  }
+
+  // Build edge adjacency map for connectivity
+  // Quantize vertex positions to handle STL vertex duplication
+  const PV=100; // vertex precision (~0.01mm)
+  function vKey(x,y,z){return Math.round(x*PV)+','+Math.round(y*PV)+','+Math.round(z*PV)}
+  function eKey(x1,y1,z1,x2,y2,z2){
+    const ka=vKey(x1,y1,z1),kb=vKey(x2,y2,z2);
+    return ka<kb?ka+'|'+kb:kb+'|'+ka;
+  }
+  const edgeToTris={};
+  for(let i=0;i<numTri;i++){
+    const o=i*9;
+    for(let e=0;e<3;e++){
+      const v1=o+e*3,v2=o+((e+1)%3)*3;
+      const key=eKey(pos[v1],pos[v1+1],pos[v1+2],pos[v2],pos[v2+1],pos[v2+2]);
+      if(!edgeToTris[key])edgeToTris[key]=[];
+      edgeToTris[key].push(i);
+    }
+  }
+
+  // Build adjacency list — neighbors must share an edge AND have similar normal
+  const NORM_THRESH=0.95; // cos(~18°)
+  const adj=new Array(numTri);
+  for(let i=0;i<numTri;i++) adj[i]=[];
+  for(const key in edgeToTris){
+    const tris=edgeToTris[key];
+    for(let i=0;i<tris.length;i++){
+      for(let j=i+1;j<tris.length;j++){
+        if(triNormals[tris[i]].dot(triNormals[tris[j]])>NORM_THRESH){
+          adj[tris[i]].push(tris[j]);
+          adj[tris[j]].push(tris[i]);
+        }
+      }
+    }
+  }
+
+  // BFS flood-fill to find connected face regions
+  const visited=new Uint8Array(numTri);
+  const triToFace=new Int32Array(numTri);
+  const faceGroups=[];
+  let gid=0;
+
+  for(let start=0;start<numTri;start++){
+    if(visited[start]) continue;
+    const component=[];
+    const queue=[start];
+    visited[start]=1;
+    while(queue.length){
+      const t=queue.shift();
+      component.push(t);
+      for(const nb of adj[t]){
+        if(!visited[nb]){visited[nb]=1;queue.push(nb)}
+      }
+    }
+
+    // Compute face group metadata
+    const avgN=new THREE.Vector3();
+    const cent=new THREE.Vector3();
+    let area=0;
+    for(const ti of component){
+      avgN.add(triNormals[ti]);
+      cent.add(triCentroids[ti]);
+      const o=ti*9;
+      a.set(pos[o],pos[o+1],pos[o+2]);
+      b.set(pos[o+3],pos[o+4],pos[o+5]);
+      c.set(pos[o+6],pos[o+7],pos[o+8]);
+      area+=b.clone().sub(a).cross(c.clone().sub(a)).length()*.5;
+    }
+    avgN.divideScalar(component.length).normalize();
+    cent.divideScalar(component.length);
+    for(const ti of component) triToFace[ti]=gid;
+
+    faceGroups.push({id:gid,tris:component,normal:avgN,centroid:cent,area});
+    gid++;
+  }
+
+  // Sort by area (largest first), reassign IDs
+  faceGroups.sort((a,b)=>b.area-a.area);
+  for(let i=0;i<faceGroups.length;i++){
+    for(const ti of faceGroups[i].tris) triToFace[ti]=i;
+    faceGroups[i].id=i;
+  }
+
+  // Pre-build highlight geometries
+  const faceGeos={};
+  for(const fg of faceGroups){
+    if(fg.area<1) continue;
+    const verts=new Float32Array(fg.tris.length*9);
+    for(let i=0;i<fg.tris.length;i++){
+      const o=fg.tris[i]*9;
+      verts.set(pos.subarray(o,o+9),i*9);
+    }
+    const bg=new THREE.BufferGeometry();
+    bg.setAttribute('position',new THREE.BufferAttribute(verts,3));
+    bg.computeVertexNormals();
+    faceGeos[fg.id]=bg;
+  }
+
+  S.faceGroups=faceGroups;
+  S.faceGeos=faceGeos;
+  S.triToFace=triToFace;
+  return {geo,faceGroups,triToFace};
+}
+
+// ==================== MOUSE / FACE SELECTION ====================
+const raycaster=new THREE.Raycaster();
+const mouse=new THREE.Vector2();
+
+function getMouseNDC(e){
+  const rect=$('cv').getBoundingClientRect();
+  mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+}
+
+function onMouseMove(e){
+  if(!modelMesh||!S.triToFace) return;
+  getMouseNDC(e);
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObject(modelMesh);
+  if(hits.length>0){
+    const fi=hits[0].faceIndex;
+    const gid=S.triToFace[fi];
+    if(gid!==hoveredFace){
+      hoveredFace=gid;
+      showHighlight(gid);
+    }
+    $('cv').style.cursor='crosshair';
+  } else {
+    if(hoveredFace>=0){hoveredFace=-1;showHighlight(-1);}
+    $('cv').style.cursor='default';
+  }
+}
+
+function onMouseClick(e){
+  if(!modelMesh||!S.triToFace) return;
+  getMouseNDC(e);
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObject(modelMesh);
+  if(hits.length>0){
+    const fi=hits[0].faceIndex;
+    const gid=S.triToFace[fi];
+    if(e.ctrlKey||e.metaKey) toggleFace(gid);
+    else selectFace(gid);
+  }
+}
+
+function showHighlight(gid){
+  if(highlightMesh){scene.remove(highlightMesh);highlightMesh.geometry.dispose();highlightMesh=null;}
+  if(gid<0||!S.faceGeos[gid]) return;
+  highlightMesh=new THREE.Mesh(S.faceGeos[gid],highlightMat);
+  scene.add(highlightMesh);
+}
+
+// ==================== MULTI-FACE SELECTION ====================
+function clearSelHighlights(){
+  for(const m of selHighlights){scene.remove(m);m.geometry.dispose()}
+  selHighlights=[];
+}
+
+function selectFace(gid){
+  if(gid<0||gid>=S.faceGroups.length) return;
+  S.selectedFaceIds.clear();
+  S.selectedFaceIds.add(gid);
+  updateFaceSelection();
+  notify('Face #'+gid+' selected \u2014 grid applied','ok',2000);
+}
+
+function toggleFace(gid){
+  if(gid<0||gid>=S.faceGroups.length) return;
+  if(S.selectedFaceIds.has(gid)) S.selectedFaceIds.delete(gid);
+  else S.selectedFaceIds.add(gid);
+  updateFaceSelection();
+  const count=S.selectedFaceIds.size;
+  notify(count+' face'+(count!==1?'s':'')+' selected','ok',2000);
+}
+
+function updateFaceSelection(){
+  clearSelHighlights();
+  const ids=Array.from(S.selectedFaceIds);
+
+  // Show selection highlights for all selected faces
+  for(const fid of ids){
+    if(S.faceGeos[fid]){
+      const m=new THREE.Mesh(S.faceGeos[fid],selHighlightMat);
+      selHighlights.push(m);
+      scene.add(m);
+    }
+  }
+
+  // Update face info panel
+  const fi=$('face-info');
+  if(ids.length===0){
+    fi.classList.add('hidden');
+    $('face-hint').classList.add('visible');
+  } else {
+    fi.classList.remove('hidden');
+    $('face-hint').classList.remove('visible');
+    if(ids.length===1){
+      const fg=S.faceGroups[ids[0]];
+      const surfType=detectSurface(fg);
+      fi.innerHTML='Face #'+ids[0]+' <span class="fi-val">('+surfType.type+')</span><br>'+
+        'Area: <span class="fi-val">'+fg.area.toFixed(0)+' mm\u00B2</span><br>'+
+        'Normal: <span class="fi-val">('+fg.normal.x.toFixed(2)+', '+fg.normal.y.toFixed(2)+', '+fg.normal.z.toFixed(2)+')</span>';
+    } else {
+      let totalArea=0;
+      for(const fid of ids) totalArea+=S.faceGroups[fid].area;
+      fi.innerHTML='<span class="fi-val">'+ids.length+' faces</span> selected<br>'+
+        'Total area: <span class="fi-val">'+totalArea.toFixed(0)+' mm\u00B2</span>';
+    }
+  }
+
+  // Show/hide clear button
+  const clrBtn=$('btn-clr');
+  if(clrBtn) clrBtn.style.display=ids.length>0?'flex':'none';
+
+  regenerate();
+}
+
+function detectSurface(fg){
+  if(!modelMesh||!modelMesh.geometry) return {type:'Flat',normal:fg.normal.clone()};
+  const pos=modelMesh.geometry.attributes.position.array;
+  const av=new THREE.Vector3(),bv=new THREE.Vector3(),cv=new THREE.Vector3();
+  let minDot=1;
+  const sampleN=Math.min(fg.tris.length,50);
+  for(let i=0;i<sampleN;i++){
+    const ti=fg.tris[Math.floor(i*fg.tris.length/sampleN)];
+    const o=ti*9;
+    av.set(pos[o],pos[o+1],pos[o+2]);
+    bv.set(pos[o+3],pos[o+4],pos[o+5]);
+    cv.set(pos[o+6],pos[o+7],pos[o+8]);
+    const n=bv.clone().sub(av).cross(cv.clone().sub(av)).normalize();
+    const d=n.dot(fg.normal);
+    if(d<minDot) minDot=d;
+  }
+  if(minDot>0.99) return {type:'Flat',normal:fg.normal.clone()};
+  if(minDot>0.9) return {type:'Slight Curve',normal:fg.normal.clone()};
+  return {type:'Curved',normal:fg.normal.clone()};
+}
+
+// ==================== GRID GENERATION (reused) ====================
+function clipLine(x1,z1,x2,z2,b){
+  let dx=x2-x1,dz=z2-z1,tmin=0,tmax=1;
+  const edges=[{p:-dx,q:x1-b.minX},{p:dx,q:b.maxX-x1},{p:-dz,q:z1-b.minZ},{p:dz,q:b.maxZ-z1}];
+  for(const{p,q}of edges){if(Math.abs(p)<1e-10){if(q<0)return null}else{const t=q/p;if(p<0)tmin=Math.max(tmin,t);else tmax=Math.min(tmax,t)}}
+  if(tmin>tmax)return null;
+  return{x1:x1+tmin*dx,z1:z1+tmin*dz,x2:x1+tmax*dx,z2:z1+tmax*dz};
+}
+function pLines(angle,sp,bounds){
+  const ca=Math.cos(angle),sa=Math.sin(angle),nx=-sa,nz=ca;
+  const cx=(bounds.minX+bounds.maxX)/2,cz=(bounds.minZ+bounds.maxZ)/2;
+  const w=bounds.maxX-bounds.minX,h=bounds.maxZ-bounds.minZ;
+  const diag=Math.sqrt(w*w+h*h)/2+sp*2,n=Math.ceil(diag/sp);
+  const segs=[];
+  for(let i=-n;i<=n;i++){const px=cx+nx*i*sp,pz=cz+nz*i*sp;const c=clipLine(px-ca*diag,pz-sa*diag,px+ca*diag,pz+sa*diag,bounds);if(c)segs.push(c)}
+  return segs;
+}
+function edgeKey(x1,z1,x2,z2){const P=50;let ax=Math.round(x1*P),az=Math.round(z1*P),bx=Math.round(x2*P),bz=Math.round(z2*P);if(ax>bx||(ax===bx&&az>bz)){[ax,bx]=[bx,ax];[az,bz]=[bz,az]}return ax+','+az+':'+bx+','+bz}
+
+function genSegs(shape,L,bounds,rotDeg){
+  const r=rotDeg*D2R,s32=Math.sqrt(3)/2;
+  switch(shape){
+    case'isogrid':{const sp=L*s32;return[...pLines(r,sp,bounds),...pLines(Math.PI/3+r,sp,bounds),...pLines(2*Math.PI/3+r,sp,bounds)]}
+    case'square':return[...pLines(r,L,bounds),...pLines(Math.PI/2+r,L,bounds)];
+    case'hex':return genHex(L,bounds,r);
+    case'rhombus':{const sp=L*s32;return[...pLines(Math.PI/4+r,sp,bounds),...pLines(3*Math.PI/4+r,sp,bounds)]}
+    case'rectangular':return[...pLines(r,L*.6,bounds),...pLines(Math.PI/2+r,L,bounds)];
+    case'orthogrid':{const sp45=L/Math.sqrt(2);return[...pLines(r,L,bounds),...pLines(Math.PI/2+r,L,bounds),...pLines(Math.PI/4+r,sp45,bounds),...pLines(3*Math.PI/4+r,sp45,bounds)]}
+    default:return[];
+  }
+}
+function genHex(L,bounds,rot){
+  const cr=Math.cos(rot),sr=Math.sin(rot),s=L,colSp=s*1.5,rowSp=s*Math.sqrt(3);
+  const cx=(bounds.minX+bounds.maxX)/2,cz=(bounds.minZ+bounds.maxZ)/2;
+  const w=bounds.maxX-bounds.minX,h=bounds.maxZ-bounds.minZ,diag=Math.sqrt(w*w+h*h)/2+s*3;
+  const nC=Math.ceil(diag/colSp)+1,nR=Math.ceil(diag/rowSp)+1;
+  const es=new Set(),segs=[];
+  for(let col=-nC;col<=nC;col++)for(let row=-nR;row<=nR;row++){
+    let hx=col*colSp,hz=row*rowSp+(Math.abs(col)%2?rowSp/2:0);
+    const rx=hx*cr-hz*sr+cx,rz=hx*sr+hz*cr+cz;
+    for(let i=0;i<6;i++){
+      const a1=Math.PI/3*i+rot,a2=Math.PI/3*((i+1)%6)+rot;
+      const x1=rx+s*Math.cos(a1),z1=rz+s*Math.sin(a1),x2=rx+s*Math.cos(a2),z2=rz+s*Math.sin(a2);
+      const k=edgeKey(x1,z1,x2,z2);if(!es.has(k)){es.add(k);const c=clipLine(x1,z1,x2,z2,bounds);if(c)segs.push(c)}
+    }
+  }
+  return segs;
+}
+function genNodes(shape,L,bounds,rotDeg){
+  const r=rotDeg*D2R,cr=Math.cos(r),sr=Math.sin(r);
+  const cx=(bounds.minX+bounds.maxX)/2,cz=(bounds.minZ+bounds.maxZ)/2;
+  const diag=Math.sqrt(Math.pow(bounds.maxX-bounds.minX,2)+Math.pow(bounds.maxZ-bounds.minZ,2))/2+L;
+  const h=L*Math.sqrt(3)/2,nR=Math.ceil(diag/h),nC=Math.ceil(diag/L);
+  const nodes=[];
+  for(let row=-nR;row<=nR;row++)for(let col=-nC;col<=nC;col++){
+    let x=col*L+(Math.abs(row)%2?L/2:0),z=row*h;
+    const rx=x*cr-z*sr+cx,rz=x*sr+z*cr+cz;
+    if(rx>=bounds.minX&&rx<=bounds.maxX&&rz>=bounds.minZ&&rz<=bounds.maxZ) nodes.push({x:rx,z:rz});
+  }
+  return nodes;
+}
+
+// ==================== FACE-BOUNDED CLIPPING ====================
+function pointInTri2D(px,pz,ax,az,bx,bz,cx,cz){
+  const v0x=cx-ax,v0z=cz-az,v1x=bx-ax,v1z=bz-az,v2x=px-ax,v2z=pz-az;
+  const d00=v0x*v0x+v0z*v0z,d01=v0x*v1x+v0z*v1z,d02=v0x*v2x+v0z*v2z;
+  const d11=v1x*v1x+v1z*v1z,d12=v1x*v2x+v1z*v2z;
+  const inv=1/(d00*d11-d01*d01);
+  const u=(d11*d02-d01*d12)*inv,v2=(d00*d12-d01*d02)*inv;
+  return u>=0&&v2>=0&&u+v2<=1;
+}
+function pointInFace2D(px,pz,tris2D){
+  for(const t of tris2D){
+    if(pointInTri2D(px,pz,t[0],t[1],t[2],t[3],t[4],t[5])) return true;
+  }
+  return false;
+}
+function buildFaceTris2D(fg,centroid,T,B){
+  if(!modelMesh||!modelMesh.geometry) return [];
+  const pos=modelMesh.geometry.attributes.position.array;
+  const tris2D=[];
+  const vv=new THREE.Vector3();
+  for(const ti of fg.tris){
+    const tri=[];
+    for(let k=0;k<3;k++){
+      const o=ti*9+k*3;
+      vv.set(pos[o]-centroid.x,pos[o+1]-centroid.y,pos[o+2]-centroid.z);
+      tri.push(vv.dot(T),vv.dot(B));
+    }
+    tris2D.push(tri);
+  }
+  return tris2D;
+}
+function clipSegToFace(s,tris2D,samples){
+  const pts=[];
+  for(let i=0;i<=samples;i++){
+    const t=i/samples;
+    const x=s.x1+(s.x2-s.x1)*t;
+    const z=s.z1+(s.z2-s.z1)*t;
+    pts.push({t,inside:pointInFace2D(x,z,tris2D)});
+  }
+  let tMin=-1,tMax=-1;
+  for(const p of pts){
+    if(p.inside){if(tMin<0)tMin=p.t;tMax=p.t}
+  }
+  if(tMin<0) return null;
+  // Binary refinement for precise entry point
+  const step=1/samples;
+  if(tMin>0){
+    let lo=Math.max(0,tMin-step),hi=tMin;
+    for(let i=0;i<8;i++){const mid=(lo+hi)/2;const x=s.x1+(s.x2-s.x1)*mid;const z=s.z1+(s.z2-s.z1)*mid;if(pointInFace2D(x,z,tris2D))hi=mid;else lo=mid}
+    tMin=hi;
+  }
+  // Binary refinement for precise exit point
+  if(tMax<1){
+    let lo=tMax,hi=Math.min(1,tMax+step);
+    for(let i=0;i<8;i++){const mid=(lo+hi)/2;const x=s.x1+(s.x2-s.x1)*mid;const z=s.z1+(s.z2-s.z1)*mid;if(pointInFace2D(x,z,tris2D))lo=mid;else hi=mid}
+    tMax=lo;
+  }
+  const dx=s.x2-s.x1,dz=s.z2-s.z1;
+  return{
+    x1:s.x1+dx*tMin,z1:s.z1+dz*tMin,
+    x2:s.x1+dx*tMax,z2:s.z1+dz*tMax
+  };
+}
+
+// Multi-segment face clipping with binary refinement for precise boundary detection
+function clipSegToFaceMulti(s,tris2D,samples){
+  const results=[];
+  let inStart=-1;
+  const step=1/samples;
+  function refineEntry(lo,hi){
+    for(let i=0;i<10;i++){const mid=(lo+hi)/2;const x=s.x1+(s.x2-s.x1)*mid,z=s.z1+(s.z2-s.z1)*mid;if(pointInFace2D(x,z,tris2D))hi=mid;else lo=mid}
+    return hi;
+  }
+  function refineExit(lo,hi){
+    for(let i=0;i<10;i++){const mid=(lo+hi)/2;const x=s.x1+(s.x2-s.x1)*mid,z=s.z1+(s.z2-s.z1)*mid;if(pointInFace2D(x,z,tris2D))lo=mid;else hi=mid}
+    return lo;
+  }
+  for(let i=0;i<=samples;i++){
+    const t=i/samples;
+    const x=s.x1+(s.x2-s.x1)*t,z=s.z1+(s.z2-s.z1)*t;
+    const inside=pointInFace2D(x,z,tris2D);
+    if(inside&&inStart<0){
+      // Binary refine entry point
+      inStart=i>0?refineEntry(Math.max(0,(i-1)/samples),t):t;
+    }
+    if(!inside&&inStart>=0){
+      // Binary refine exit point
+      const tEnd=refineExit((i-1)/samples,t);
+      const dx=s.x2-s.x1,dz=s.z2-s.z1;
+      results.push({x1:s.x1+dx*inStart,z1:s.z1+dz*inStart,x2:s.x1+dx*tEnd,z2:s.z1+dz*tEnd});
+      inStart=-1;
+    }
+  }
+  if(inStart>=0){
+    const dx=s.x2-s.x1,dz=s.z2-s.z1;
+    results.push({x1:s.x1+dx*inStart,z1:s.z1+dz*inStart,x2:s.x2,z2:s.z2});
+  }
+  return results;
+}
+
+// Extend a 2D segment outward in both directions so ribs merge into adjacent walls
+function extendSeg(s,ext){
+  const dx=s.x2-s.x1,dz=s.z2-s.z1;
+  const len=Math.sqrt(dx*dx+dz*dz);
+  if(len<0.001) return s;
+  const ux=dx/len,uz=dz/len;
+  return{x1:s.x1-ux*ext,z1:s.z1-uz*ext,x2:s.x2+ux*ext,z2:s.z2+uz*ext};
+}
+
+function makeRibGeo(segs,rw,rh){
+  if(!segs.length)return null;
+  const geos=[],tmp=new THREE.Object3D();
+  for(const s of segs){
+    const dx=s.x2-s.x1,dz=s.z2-s.z1,len=Math.sqrt(dx*dx+dz*dz);
+    if(len<.01)continue;
+    const g=new THREE.BoxGeometry(len,rh,rw);
+    tmp.position.set((s.x1+s.x2)/2,rh/2,(s.z1+s.z2)/2);
+    tmp.rotation.set(0,Math.atan2(-dz,dx),0);tmp.scale.set(1,1,1);tmp.updateMatrix();
+    g.applyMatrix4(tmp.matrix);geos.push(g);
+  }
+  if(!geos.length)return null;
+  try{return THREE.BufferGeometryUtils.mergeBufferGeometries(geos)}catch(e){return geos[0]}
+}
+function makeNodeGeo(nodes,style,dia,rh){
+  if(!nodes.length||style==='none')return null;
+  const geos=[],r=dia/2,sg=style==='hex'?6:20,tmp=new THREE.Object3D();
+  for(const nd of nodes){
+    const g=new THREE.CylinderGeometry(r,r,rh,sg);
+    tmp.position.set(nd.x,rh/2,nd.z);tmp.rotation.set(0,0,0);tmp.updateMatrix();
+    g.applyMatrix4(tmp.matrix);geos.push(g);
+  }
+  try{return THREE.BufferGeometryUtils.mergeBufferGeometries(geos)}catch(e){return geos[0]}
+}
+
+// ==================== BUILD FACE FRAME (PCA-aligned) ====================
+function buildFrame(normal, fg, centroid){
+  const N=normal.clone().normalize();
+  // Initial arbitrary tangent frame perpendicular to normal
+  let T0;
+  if(Math.abs(N.y)<.9) T0=new THREE.Vector3(0,1,0).cross(N).normalize();
+  else T0=new THREE.Vector3(1,0,0).cross(N).normalize();
+  const B0=N.clone().cross(T0).normalize();
+
+  // If face group provided, use PCA to align grid to face's natural axes
+  if(fg && modelMesh && modelMesh.geometry){
+    const pos=modelMesh.geometry.attributes.position.array;
+    const v=new THREE.Vector3();
+    let cxx=0,cxz=0,czz=0,n=0;
+    for(const ti of fg.tris){
+      for(let k=0;k<3;k++){
+        const o=ti*9+k*3;
+        v.set(pos[o]-centroid.x,pos[o+1]-centroid.y,pos[o+2]-centroid.z);
+        const u=v.dot(T0),w=v.dot(B0);
+        cxx+=u*u;cxz+=u*w;czz+=w*w;n++;
+      }
+    }
+    if(n>0){
+      cxx/=n;cxz/=n;czz/=n;
+      // Eigenvector of covariance matrix for largest eigenvalue
+      const trace=cxx+czz;
+      const det=cxx*czz-cxz*cxz;
+      const disc=Math.sqrt(Math.max(0,trace*trace/4-det));
+      const lambda1=trace/2+disc;
+      let ex,ez;
+      if(Math.abs(cxz)>1e-10){ex=lambda1-czz;ez=cxz}
+      else {ex=cxx>=czz?1:0;ez=cxx>=czz?0:1}
+      const len=Math.sqrt(ex*ex+ez*ez)||1;
+      ex/=len;ez/=len;
+      // Reconstruct 3D tangent/bitangent aligned to face shape
+      const T=T0.clone().multiplyScalar(ex).add(B0.clone().multiplyScalar(ez)).normalize();
+      const B=N.clone().cross(T).normalize();
+      return{T,B,N};
+    }
+  }
+  return{T:T0,B:B0,N};
+}
+
+function projectFace2D(fg,centroid,T,B){
+  // Get all vertices of face triangles and project to 2D
+  if(!modelMesh||!modelMesh.geometry) return{minX:-50,maxX:50,minZ:-50,maxZ:50};
+  const pos=modelMesh.geometry.attributes.position.array;
+  let mnX=Infinity,mxX=-Infinity,mnZ=Infinity,mxZ=-Infinity;
+  const v=new THREE.Vector3();
+  for(const ti of fg.tris){
+    for(let k=0;k<3;k++){
+      const o=ti*9+k*3;
+      v.set(pos[o]-centroid.x,pos[o+1]-centroid.y,pos[o+2]-centroid.z);
+      const u=v.dot(T),w=v.dot(B);
+      if(u<mnX)mnX=u;if(u>mxX)mxX=u;if(w<mnZ)mnZ=w;if(w>mxZ)mxZ=w;
+    }
+  }
+  return{minX:mnX,maxX:mxX,minZ:mnZ,maxZ:mxZ};
+}
+
+// ==================== FACE GROUP HELPERS ====================
+// Group selected faces by normal similarity for grid interconnection
+function groupFacesByNormal(faceIds,threshold){
+  const groups=[];
+  const assigned=new Set();
+  for(const fid of faceIds){
+    if(assigned.has(fid)) continue;
+    const fg=S.faceGroups[fid];
+    const group=[fid];
+    assigned.add(fid);
+    for(const otherId of faceIds){
+      if(assigned.has(otherId)) continue;
+      if(fg.normal.dot(S.faceGroups[otherId].normal)>threshold){
+        group.push(otherId);
+        assigned.add(otherId);
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
+// Build a merged face group from multiple face IDs (combines tris, area-weighted normal/centroid)
+function buildMergedFaceGroup(faceIds){
+  const merged={tris:[],normal:new THREE.Vector3(),centroid:new THREE.Vector3(),area:0};
+  for(const fid of faceIds){
+    const fg=S.faceGroups[fid];
+    merged.tris.push(...fg.tris);
+    merged.normal.add(fg.normal.clone().multiplyScalar(fg.area));
+    merged.centroid.add(fg.centroid.clone().multiplyScalar(fg.area));
+    merged.area+=fg.area;
+  }
+  if(merged.area>0){
+    merged.normal.divideScalar(merged.area).normalize();
+    merged.centroid.divideScalar(merged.area);
+  }
+  return merged;
+}
+
+// ==================== REGENERATION ====================
+function regenerate(){
+  const cv=$('cv');cv.classList.add('fading');
+  setTimeout(()=>{doRegenerate();cv.classList.remove('fading')},60);
+}
+function doRegenerate(){
+  // Clean old grid
+  if(gridGroup){scene.remove(gridGroup);gridGroup.traverse(ch=>{if(ch.geometry)ch.geometry.dispose();if(ch.material){if(Array.isArray(ch.material))ch.material.forEach(m=>m.dispose());else ch.material.dispose()}});gridGroup=null}
+
+  const{cs,rw,rd,st,shape,rot,dm,ns,nd}=S;
+  if(rw>=cs/2){$('sl-rw').classList.add('err');$('in-rw').classList.add('err');notify('Rib width too large','warn');return}
+  $('sl-rw').classList.remove('err');$('in-rw').classList.remove('err');
+
+  const selectedIds=Array.from(S.selectedFaceIds);
+  const isDemo=!S.modelLoaded||selectedIds.length===0;
+
+  gridGroup=new THREE.Group();
+  let allSegs=[];
+  let combinedBounds={minX:-50,maxX:50,minZ:-50,maxZ:50};
+
+  if(isDemo){
+    // Demo flat plate
+    const bounds={minX:-50,maxX:50,minZ:-50,maxZ:50};
+    combinedBounds=bounds;
+    const centroid=new THREE.Vector3(0,0,0);
+    const T=new THREE.Vector3(1,0,0),N=new THREE.Vector3(0,1,0),B=new THREE.Vector3(0,0,1);
+
+    const padded={minX:bounds.minX-cs,maxX:bounds.maxX+cs,minZ:bounds.minZ-cs,maxZ:bounds.maxZ+cs};
+    let segs=genSegs(shape,cs,padded,rot);
+    if(segs.length>MAX_SEGS){notify('Grid capped at '+MAX_SEGS+' ribs','warn');segs=segs.slice(0,MAX_SEGS)}
+    allSegs=segs;
+
+    let rh=rd;
+    if(dm==='both')rh=rd*2;
+    const ribGeo=makeRibGeo(segs,rw,rh);
+    let nodeList=[];
+    if(ns!=='none'){nodeList=genNodes(shape,cs,bounds,rot);if(nodeList.length>5000)nodeList=nodeList.slice(0,5000)}
+    const nodeGeo=makeNodeGeo(nodeList,ns,nd,rh);
+
+    // Skin plate for demo
+    const sw=bounds.maxX-bounds.minX,sd=bounds.maxZ-bounds.minZ;
+    const skinG=new THREE.BoxGeometry(sw,st,sd);
+    const skinM=new THREE.Mesh(skinG,skinMat.clone());
+    skinM.position.set((bounds.minX+bounds.maxX)/2,dm==='raised'?-st/2:dm==='recessed'?st/2:0,(bounds.minZ+bounds.maxZ)/2);
+    gridGroup.add(skinM);
+
+    if(ribGeo){
+      const rm=new THREE.Mesh(ribGeo,ribMat.clone());
+      if(dm==='recessed')rm.position.y=-rd;
+      if(dm==='both')rm.position.y=-rd;
+      gridGroup.add(rm);
+    }
+    if(nodeGeo){
+      const nm=new THREE.Mesh(nodeGeo,ribMat.clone());
+      nm.material.color.setHex(0x7090A8);
+      if(dm==='recessed')nm.position.y=-rd;
+      if(dm==='both')nm.position.y=-rd;
+      gridGroup.add(nm);
+    }
+  } else {
+    // Group selected faces by normal for grid interconnection (~10° threshold)
+    const groups=groupFacesByNormal(selectedIds,0.985);
+
+    for(const group of groups){
+      // Merge all faces in this coplanar group into one unified face
+      const merged=buildMergedFaceGroup(group);
+      const centroid=merged.centroid.clone();
+      const frame=buildFrame(merged.normal,merged,centroid);
+      const T=frame.T,B=frame.B,N=frame.N;
+      const bounds=projectFace2D(merged,centroid,T,B);
+
+      const padded={minX:bounds.minX-cs,maxX:bounds.maxX+cs,minZ:bounds.minZ-cs,maxZ:bounds.maxZ+cs};
+      let segs=genSegs(shape,cs,padded,rot);
+      if(segs.length>MAX_SEGS) segs=segs.slice(0,MAX_SEGS);
+
+      // Clip to combined face boundary (union of all face triangles)
+      const tris2D=buildFaceTris2D(merged,centroid,T,B);
+      if(tris2D.length>0){
+        const clipped=[];
+        for(const s of segs){
+          // Use multi-segment clipping for proper handling of non-contiguous face regions
+          const parts=clipSegToFaceMulti(s,tris2D,24);
+          clipped.push(...parts);
+        }
+        segs=clipped;
+      }
+
+      // Extend each segment past face boundary so ribs merge into adjacent walls
+      segs=segs.map(s=>extendSeg(s,Math.max(rw*1.5,3)));
+
+      allSegs.push(...segs);
+
+      let rh=rd;
+      if(dm==='both')rh=rd*2;
+      const ribGeo=makeRibGeo(segs,rw,rh);
+      let nodeList=[];
+      if(ns!=='none'){
+        nodeList=genNodes(shape,cs,bounds,rot);
+        if(nodeList.length>5000)nodeList=nodeList.slice(0,5000);
+        // Clip nodes to actual face boundary
+        if(tris2D.length>0) nodeList=nodeList.filter(n=>pointInFace2D(n.x,n.z,tris2D));
+      }
+      const nodeGeo=makeNodeGeo(nodeList,ns,nd,rh);
+
+      const subGroup=new THREE.Group();
+      if(ribGeo){
+        const rm=new THREE.Mesh(ribGeo,ribMat.clone());
+        if(dm==='recessed')rm.position.y=-rd;
+        if(dm==='both')rm.position.y=-rd;
+        subGroup.add(rm);
+      }
+      if(nodeGeo){
+        const nm=new THREE.Mesh(nodeGeo,ribMat.clone());
+        nm.material.color.setHex(0x7090A8);
+        if(dm==='recessed')nm.position.y=-rd;
+        if(dm==='both')nm.position.y=-rd;
+        subGroup.add(nm);
+      }
+
+      // Transform to face coordinate system — ribs sit ON the surface (no offset)
+      subGroup.matrixAutoUpdate=false;
+      subGroup.matrix.set(
+        T.x, N.x, B.x, centroid.x,
+        T.y, N.y, B.y, centroid.y,
+        T.z, N.z, B.z, centroid.z,
+        0,   0,   0,   1
+      );
+
+      gridGroup.add(subGroup);
+    }
+
+    // Compute accurate skin area for metrics from actual face areas
+    let totalArea=0;
+    for(const fid of selectedIds) totalArea+=S.faceGroups[fid].area;
+    const side=Math.sqrt(totalArea);
+    combinedBounds={minX:-side/2,maxX:side/2,minZ:-side/2,maxZ:side/2};
+  }
+
+  S.lastSegs=allSegs;
+  S.lastBounds=combinedBounds;
+
+  if(S.wireframe) gridGroup.traverse(ch=>{if(ch.material)ch.material.wireframe=true});
+  scene.add(gridGroup);
+
+  updateMetrics(allSegs,combinedBounds);
+  updateStatus(allSegs.length);
+  $('btn-exp').disabled=false;
+}
+
+// ==================== METRICS ====================
+function updateMetrics(segs,bounds){
+  const mat=MATS[S.mat]||MATS.al6061;
+  const dens=S.mat==='custom'?parseFloat($('in-dens').value)||2700:mat.density;
+  const skinA=(bounds.maxX-bounds.minX)*(bounds.maxZ-bounds.minZ);
+  let totalLen=0;
+  for(const s of segs){const dx=s.x2-s.x1,dz=s.z2-s.z1;totalLen+=Math.sqrt(dx*dx+dz*dz)}
+  const skinV=skinA*S.st,ribV=totalLen*S.rw*S.rd;
+  const mass=(skinV+ribV)*1e-9*dens;
+  const openA=Math.max(0,Math.min(100,(1-totalLen*S.rw/skinA)*100));
+  const ribDens=totalLen/(skinA/100);
+  let delta=S.shape==='isogrid'?Math.sqrt(3)*S.rw*S.rd/(S.cs*S.st):S.rw*S.rd/(S.cs*S.st);
+  $('m-mass').textContent=mass<1?(mass*1000).toFixed(1)+' g':mass.toFixed(2)+' kg';
+  $('m-open').textContent=openA.toFixed(1)+'%';
+  $('m-rib').textContent=ribDens.toFixed(1)+'/cm\u00B2';
+  $('m-stf').textContent=delta.toFixed(3);
+  $('stf-fill').style.width=Math.min(100,delta*20)+'%';
+}
+
+// ==================== FILE LOADING ====================
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  S.fileName=file.name;
+  $('ld-ov').classList.add('visible');$('drop-zone').classList.add('hidden');
+  setStatus('warn','Parsing '+file.name+'\u2026');
+
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      let geometry;
+      if(ext==='step'||ext==='stp'){
+        geometry=await parseStepFile(new Uint8Array(e.target.result));
+      } else if(ext==='stl'){
+        geometry=new THREE.STLLoader().parse(e.target.result);
+      } else if(ext==='obj'){
+        const obj=new THREE.OBJLoader().parse(e.target.result);
+        obj.traverse(ch=>{if(ch.isMesh&&ch.geometry&&!geometry)geometry=ch.geometry});
+        if(!geometry)throw new Error('No mesh in OBJ');
+      } else throw new Error('Use STEP, STL or OBJ format');
+      geometry.computeVertexNormals();
+      loadModel(geometry);
+      setStatus('ok',S.fileName+' loaded');
+      notify('Model loaded \u2014 click a face to apply grid','ok',4000);
+    }catch(err){
+      console.error(err);notify('Parse error: '+err.message,'err',5000);
+      setStatus('err','Parse error');$('drop-zone').classList.remove('hidden');
+    }
+    $('ld-ov').classList.remove('visible');
+  };
+  if(ext==='obj')reader.readAsText(file);else reader.readAsArrayBuffer(file);
+}
+
+// ==================== STEP/STP IMPORT (occt-import-js WASM) ====================
+let _occtPromise=null;
+function getOcct(){
+  if(!_occtPromise){
+    _occtPromise=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js';
+      s.onload=async()=>{
+        try{
+          const occt=await occtimportjs({
+            locateFile:n=>'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/'+n
+          });
+          resolve(occt);
+        }catch(e){reject(e)}
+      };
+      s.onerror=()=>reject(new Error('Failed to load STEP parser library'));
+      document.head.appendChild(s);
+    });
+  }
+  return _occtPromise;
+}
+async function parseStepFile(uint8Data){
+  notify('Loading STEP parser (first time may take a moment)\u2026','warn',15000);
+  setStatus('warn','Loading OpenCascade WASM\u2026');
+  const occt=await getOcct();
+  setStatus('warn','Parsing STEP geometry\u2026');
+  const result=occt.ReadStepFile(uint8Data, null);
+  if(!result.success) throw new Error('STEP file parse failed \u2014 check file integrity');
+  if(!result.meshes||!result.meshes.length) throw new Error('No geometry found in STEP file');
+
+  const geos=[];
+  for(const md of result.meshes){
+    const geo=new THREE.BufferGeometry();
+    if(md.attributes&&md.attributes.position){
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(md.attributes.position.array,3));
+    }
+    if(md.attributes&&md.attributes.normal){
+      geo.setAttribute('normal',new THREE.Float32BufferAttribute(md.attributes.normal.array,3));
+    }
+    if(md.index){
+      geo.setIndex(new THREE.BufferAttribute(new Uint32Array(md.index.array),1));
+    }
+    if(geo.attributes.position) geos.push(geo);
+  }
+  if(!geos.length) throw new Error('No valid meshes in STEP file');
+
+  // Merge all sub-meshes into one geometry
+  let geometry;
+  const nonIndexed=geos.map(g=>g.index?g.toNonIndexed():g);
+  if(nonIndexed.length===1){
+    geometry=nonIndexed[0];
+  } else {
+    try{geometry=THREE.BufferGeometryUtils.mergeBufferGeometries(nonIndexed)}
+    catch(e){geometry=nonIndexed[0]}
+  }
+  return geometry;
+}
+
+function loadModel(geometry){
+  // Remove old
+  if(modelMesh){scene.remove(modelMesh);modelMesh.geometry.dispose();modelMesh=null}
+  if(gridGroup){scene.remove(gridGroup);gridGroup=null}
+  clearSelHighlights();
+  if(highlightMesh){scene.remove(highlightMesh);highlightMesh.geometry.dispose();highlightMesh=null}
+  S.selectedFaceIds.clear();
+  S.modelLoaded=true;
+
+  // Center
+  geometry.computeBoundingBox();
+  const center=new THREE.Vector3();geometry.boundingBox.getCenter(center);
+  geometry.translate(-center.x,-center.y,-center.z);
+  geometry.computeBoundingBox();
+
+  // Ensure non-indexed for face selection
+  let geo=geometry;
+  if(geo.index) geo=geo.toNonIndexed();
+  geo.computeVertexNormals();
+
+  // Detect faces
+  const fd=detectFaces(geo);
+
+  // Create model mesh
+  const mat=new THREE.MeshStandardMaterial({color:0x8fa0b0,roughness:.4,metalness:.6,side:THREE.DoubleSide});
+  modelMesh=new THREE.Mesh(fd.geo,mat);
+  scene.add(modelMesh);
+
+  // Fit camera
+  const bb=fd.geo.boundingBox||geometry.boundingBox;
+  const sz=new THREE.Vector3();bb.getSize(sz);
+  const maxD=Math.max(sz.x,sz.y,sz.z);
+  const dist=maxD/(2*Math.tan(camera.fov*D2R/2))*1.8;
+  const c2=new THREE.Vector3();bb.getCenter(c2);
+  camera.position.set(c2.x+dist*.6,c2.y+dist*.5,c2.z+dist*.7);
+  controls.target.copy(c2);controls.update();
+
+  // Show face hint
+  $('face-hint').classList.add('visible');
+  $('face-info').classList.add('hidden');
+  $('vp-label').textContent=S.fileName+' \u2014 '+S.faceGroups.length+' faces detected';
+  if($('btn-clr'))$('btn-clr').style.display='none';
+
+  // Auto-select largest flat face
+  if(S.faceGroups.length>0){
+    selectFace(0);
+  }
+}
+
+// ==================== EXPORT ====================
+function mergeGridGeos(){
+  if(!gridGroup)return null;
+  const geos=[];
+  gridGroup.updateMatrixWorld(true);
+  gridGroup.traverse(ch=>{if(ch.isMesh&&ch.geometry){const g=ch.geometry.clone();ch.updateWorldMatrix(true,false);g.applyMatrix4(ch.matrixWorld);geos.push(g)}});
+  if(!geos.length)return null;
+  const stripped=geos.map(g=>{let ng=g.index?g.toNonIndexed():g;const sg=new THREE.BufferGeometry();sg.setAttribute('position',ng.attributes.position.clone());return sg});
+  try{return THREE.BufferGeometryUtils.mergeBufferGeometries(stripped)}catch(e){return stripped[0]}
+}
+function mergeModelAndGrid(){
+  const geos=[];
+  if(modelMesh&&modelMesh.geometry){
+    const g=modelMesh.geometry.clone();
+    modelMesh.updateWorldMatrix(true,false);
+    g.applyMatrix4(modelMesh.matrixWorld);
+    geos.push(g);
+  }
+  if(gridGroup){
+    gridGroup.updateMatrixWorld(true);
+    gridGroup.traverse(ch=>{if(ch.isMesh&&ch.geometry){
+      const g=ch.geometry.clone();ch.updateWorldMatrix(true,false);
+      g.applyMatrix4(ch.matrixWorld);geos.push(g);
+    }});
+  }
+  if(!geos.length) return null;
+  // Strip to position-only for reliable merge (UV/normal mismatches cause failures)
+  const stripped=geos.map(g=>{
+    let ng=g.index?g.toNonIndexed():g;
+    const sg=new THREE.BufferGeometry();
+    sg.setAttribute('position',ng.attributes.position.clone());
+    return sg;
+  });
+  try{return THREE.BufferGeometryUtils.mergeBufferGeometries(stripped)}catch(e){console.warn('merge failed',e);return stripped[0]}
+}
+function exportMergedSTL(){
+  const merged=mergeModelAndGrid();
+  if(!merged){notify('Nothing to export','err');return}
+  let geo=merged;if(geo.index)geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array,numTri=pos.length/9;
+  const buf=new ArrayBuffer(80+4+50*numTri),dv=new DataView(buf);
+  const hdr='ISOGRID STUDIO v2 - merged';for(let i=0;i<80;i++)dv.setUint8(i,i<hdr.length?hdr.charCodeAt(i):0);
+  dv.setUint32(80,numTri,true);let off=84;
+  for(let i=0;i<numTri;i++){
+    const o=i*9,ax=pos[o],ay=pos[o+1],az=pos[o+2],bx=pos[o+3],by=pos[o+4],bz=pos[o+5],cx=pos[o+6],cy=pos[o+7],cz=pos[o+8];
+    let nx=(by-ay)*(cz-az)-(bz-az)*(cy-ay),ny=(bz-az)*(cx-ax)-(bx-ax)*(cz-az),nz=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
+    const nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;nx/=nl;ny/=nl;nz/=nl;
+    dv.setFloat32(off,nx,true);off+=4;dv.setFloat32(off,ny,true);off+=4;dv.setFloat32(off,nz,true);off+=4;
+    dv.setFloat32(off,ax,true);off+=4;dv.setFloat32(off,ay,true);off+=4;dv.setFloat32(off,az,true);off+=4;
+    dv.setFloat32(off,bx,true);off+=4;dv.setFloat32(off,by,true);off+=4;dv.setFloat32(off,bz,true);off+=4;
+    dv.setFloat32(off,cx,true);off+=4;dv.setFloat32(off,cy,true);off+=4;dv.setFloat32(off,cz,true);off+=4;
+    dv.setUint16(off,0,true);off+=2;
+  }
+  dlBlob(buf,'isogrid_model_merged.stl','application/octet-stream');
+  notify('Model+Grid STL exported \u2014 '+numTri.toLocaleString()+' tris','ok');
+}
+// ==================== STEP EXPORT (ADVANCED_BREP for SolidWorks compat) ====================
+function exportSTEP(){
+  const merged=mergeModelAndGrid();
+  if(!merged){notify('Nothing to export','err');return}
+  let geo=merged;if(geo.index)geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array,numTri=pos.length/9;
+  notify('Generating STEP ('+numTri+' faces)...','warn',10000);
+  setTimeout(()=>{
+    try{
+      const step=generateSTEPData(pos,numTri);
+      dlBlob(step,'isogrid_export.step','application/step');
+      notify('STEP exported - '+numTri.toLocaleString()+' faces','ok');
+    }catch(e){console.error(e);notify('STEP export failed: '+e.message,'err')}
+  },50);
+}
+function generateSTEPData(pos,numTri){
+  let eid=0;const ni=()=>++eid;
+  const E=[];
+  const f=(v)=>{const s=v.toFixed(6);return s.indexOf('.')<0?s+'.':s};
+  // Product boilerplate
+  const appCtx=ni();E.push('#'+appCtx+"=APPLICATION_CONTEXT('core data for automotive mechanical design process');");
+  const appProto=ni();E.push('#'+appProto+"=APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,#"+appCtx+");");
+  const prodCtx=ni();E.push('#'+prodCtx+"=PRODUCT_CONTEXT('',#"+appCtx+",'mechanical');");
+  const prod=ni();E.push('#'+prod+"=PRODUCT('isogrid','ISOGRID STUDIO Export','',(#"+prodCtx+"));");
+  const prodDefForm=ni();E.push('#'+prodDefForm+"=PRODUCT_DEFINITION_FORMATION('','',#"+prod+");");
+  const prodDefCtx=ni();E.push('#'+prodDefCtx+"=PRODUCT_DEFINITION_CONTEXT('design',#"+appCtx+",'');");
+  const prodDef=ni();E.push('#'+prodDef+"=PRODUCT_DEFINITION('','',#"+prodDefForm+",#"+prodDefCtx+");");
+  const prodDefShape=ni();E.push('#'+prodDefShape+"=PRODUCT_DEFINITION_SHAPE('','',#"+prodDef+");");
+  // Units and geometric context
+  const origin=ni();E.push('#'+origin+"=CARTESIAN_POINT('',(0.,0.,0.));");
+  const dirZ=ni();E.push('#'+dirZ+"=DIRECTION('',(0.,0.,1.));");
+  const dirX=ni();E.push('#'+dirX+"=DIRECTION('',(1.,0.,0.));");
+  const axis=ni();E.push('#'+axis+"=AXIS2_PLACEMENT_3D('',#"+origin+",#"+dirZ+",#"+dirX+");");
+  const lenU=ni();E.push('#'+lenU+"=(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.));");
+  const angU=ni();E.push('#'+angU+"=(NAMED_UNIT(*)PLANE_ANGLE_UNIT()SI_UNIT($,.RADIAN.));");
+  const saU=ni();E.push('#'+saU+"=(NAMED_UNIT(*)SI_UNIT($,.STERADIAN.)SOLID_ANGLE_UNIT());");
+  const uncVal=ni();E.push('#'+uncVal+"=UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-07),#"+lenU+",'distance_accuracy_value','confusion accuracy');");
+  const repCtx=ni();E.push('#'+repCtx+"=(GEOMETRIC_REPRESENTATION_CONTEXT(3)GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#"+uncVal+"))GLOBAL_UNIT_ASSIGNED_CONTEXT((#"+lenU+",#"+angU+",#"+saU+"))REPRESENTATION_CONTEXT('Context3D',''));");
+  // Deduplicated vertices
+  const vtxMap=new Map();
+  function getVtx(x,y,z){
+    const k=f(x)+','+f(y)+','+f(z);
+    if(vtxMap.has(k))return vtxMap.get(k);
+    const cp=ni();E.push('#'+cp+"=CARTESIAN_POINT('',("+f(x)+","+f(y)+","+f(z)+"));");
+    const vp=ni();E.push('#'+vp+"=VERTEX_POINT('',#"+cp+");");
+    vtxMap.set(k,vp);return vp;
+  }
+  // Build ADVANCED_FACE for each triangle
+  const faceIds=[];
+  for(let t=0;t<numTri;t++){
+    const o=t*9;
+    const ax=pos[o],ay=pos[o+1],az=pos[o+2];
+    const bx=pos[o+3],by=pos[o+4],bz=pos[o+5];
+    const cx=pos[o+6],cy=pos[o+7],cz=pos[o+8];
+    // Skip degenerate triangles
+    const e1x=bx-ax,e1y=by-ay,e1z=bz-az,e2x=cx-ax,e2y=cy-ay,e2z=cz-az;
+    let nx=e1y*e2z-e1z*e2y,ny=e1z*e2x-e1x*e2z,nz=e1x*e2y-e1y*e2x;
+    const nl=Math.sqrt(nx*nx+ny*ny+nz*nz);if(nl<1e-10)continue;
+    nx/=nl;ny/=nl;nz/=nl;
+    const v1=getVtx(ax,ay,az),v2=getVtx(bx,by,bz),v3=getVtx(cx,cy,cz);
+    // PLANE for this face
+    const pp=ni();E.push('#'+pp+"=CARTESIAN_POINT('',("+f(ax)+","+f(ay)+","+f(az)+"));");
+    const pd=ni();E.push('#'+pd+"=DIRECTION('',("+f(nx)+","+f(ny)+","+f(nz)+"));");
+    let rx,ry,rz;if(Math.abs(nx)<0.9){rx=0;ry=-nz;rz=ny}else{rx=-nz;ry=0;rz=nx}
+    const rl=Math.sqrt(rx*rx+ry*ry+rz*rz)||1;rx/=rl;ry/=rl;rz/=rl;
+    const rd2=ni();E.push('#'+rd2+"=DIRECTION('',("+f(rx)+","+f(ry)+","+f(rz)+"));");
+    const pa=ni();E.push('#'+pa+"=AXIS2_PLACEMENT_3D('',#"+pp+",#"+pd+",#"+rd2+");");
+    const pl=ni();E.push('#'+pl+"=PLANE('',#"+pa+");");
+    // 3 edges: A->B, B->C, C->A
+    const verts=[[ax,ay,az,bx,by,bz,v1,v2],[bx,by,bz,cx,cy,cz,v2,v3],[cx,cy,cz,ax,ay,az,v3,v1]];
+    const oeIds=[];
+    for(const[x1,y1,z1,x2,y2,z2,va,vb] of verts){
+      const dx=x2-x1,dy=y2-y1,dz=z2-z1;
+      const dl=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      const ep=ni();E.push('#'+ep+"=CARTESIAN_POINT('',("+f(x1)+","+f(y1)+","+f(z1)+"));");
+      const ed=ni();E.push('#'+ed+"=DIRECTION('',("+f(dx/dl)+","+f(dy/dl)+","+f(dz/dl)+"));");
+      const ev=ni();E.push('#'+ev+"=VECTOR('',#"+ed+","+f(dl)+");");
+      const ln=ni();E.push('#'+ln+"=LINE('',#"+ep+",#"+ev+");");
+      const ec=ni();E.push('#'+ec+"=EDGE_CURVE('',#"+va+",#"+vb+",#"+ln+",.T.);");
+      const oe=ni();E.push('#'+oe+"=ORIENTED_EDGE('',*,*,#"+ec+",.T.);");
+      oeIds.push(oe);
+    }
+    const el=ni();E.push('#'+el+"=EDGE_LOOP('',(#"+oeIds.join(',#')+"));");
+    const fb=ni();E.push('#'+fb+"=FACE_OUTER_BOUND('',#"+el+",.T.);");
+    const af=ni();E.push('#'+af+"=ADVANCED_FACE('',(#"+fb+"),#"+pl+",.T.);");
+    faceIds.push(af);
+  }
+  // Shell and BRep
+  const sh=ni();E.push('#'+sh+"=CLOSED_SHELL('',(#"+faceIds.join(',#')+"));");
+  const br=ni();E.push('#'+br+"=MANIFOLD_SOLID_BREP('',#"+sh+");");
+  const sr=ni();E.push('#'+sr+"=ADVANCED_BREP_SHAPE_REPRESENTATION('',(#"+axis+",#"+br+"),#"+repCtx+");");
+  const sdr=ni();E.push('#'+sdr+"=SHAPE_DEFINITION_REPRESENTATION(#"+prodDefShape+",#"+sr+");");
+  const ts=new Date().toISOString().replace(/[-:]/g,'').split('.')[0];
+  return 'ISO-10303-21;\nHEADER;\n'+
+    "FILE_DESCRIPTION(('ISOGRID STUDIO v2 Export'),'2;1');\n"+
+    "FILE_NAME('isogrid_export.step','"+ts+"',('ISOGRID STUDIO'),(''),'',' ','');\n"+
+    "FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 }'));\n"+
+    'ENDSEC;\nDATA;\n'+E.join('\n')+'\nENDSEC;\nEND-ISO-10303-21;\n';
+}
+function exportSTLBin(){
+  const merged=mergeGridGeos();if(!merged){notify('Nothing to export','err');return}
+  let geo=merged;if(geo.index)geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array,numTri=pos.length/9;
+  const buf=new ArrayBuffer(80+4+50*numTri),dv=new DataView(buf);
+  const hdr='ISOGRID STUDIO v2';for(let i=0;i<80;i++)dv.setUint8(i,i<hdr.length?hdr.charCodeAt(i):0);
+  dv.setUint32(80,numTri,true);let off=84;
+  for(let i=0;i<numTri;i++){
+    const o=i*9,ax=pos[o],ay=pos[o+1],az=pos[o+2],bx=pos[o+3],by=pos[o+4],bz=pos[o+5],cx=pos[o+6],cy=pos[o+7],cz=pos[o+8];
+    let nx=(by-ay)*(cz-az)-(bz-az)*(cy-ay),ny=(bz-az)*(cx-ax)-(bx-ax)*(cz-az),nz=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
+    const nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;nx/=nl;ny/=nl;nz/=nl;
+    dv.setFloat32(off,nx,true);off+=4;dv.setFloat32(off,ny,true);off+=4;dv.setFloat32(off,nz,true);off+=4;
+    dv.setFloat32(off,ax,true);off+=4;dv.setFloat32(off,ay,true);off+=4;dv.setFloat32(off,az,true);off+=4;
+    dv.setFloat32(off,bx,true);off+=4;dv.setFloat32(off,by,true);off+=4;dv.setFloat32(off,bz,true);off+=4;
+    dv.setFloat32(off,cx,true);off+=4;dv.setFloat32(off,cy,true);off+=4;dv.setFloat32(off,cz,true);off+=4;
+    dv.setUint16(off,0,true);off+=2;
+  }
+  dlBlob(buf,'isogrid_export.stl','application/octet-stream');
+  notify('STL exported \u2014 '+numTri.toLocaleString()+' tris','ok');
+}
+function exportSTLAsc(){
+  const merged=mergeGridGeos();if(!merged){notify('Nothing to export','err');return}
+  let geo=merged;if(geo.index)geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array,numTri=pos.length/9;
+  let s='solid isogrid\n';
+  for(let i=0;i<numTri;i++){const o=i*9;const ax=pos[o],ay=pos[o+1],az=pos[o+2],bx=pos[o+3],by=pos[o+4],bz=pos[o+5],cx=pos[o+6],cy=pos[o+7],cz=pos[o+8];let nx=(by-ay)*(cz-az)-(bz-az)*(cy-ay),ny=(bz-az)*(cx-ax)-(bx-ax)*(cz-az),nz=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);const nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;nx/=nl;ny/=nl;nz/=nl;s+='  facet normal '+nx+' '+ny+' '+nz+'\n    outer loop\n      vertex '+ax+' '+ay+' '+az+'\n      vertex '+bx+' '+by+' '+bz+'\n      vertex '+cx+' '+cy+' '+cz+'\n    endloop\n  endfacet\n'}
+  s+='endsolid isogrid\n';dlBlob(s,'isogrid_export.stl','text/plain');notify('STL ASCII exported','ok');
+}
+function exportOBJ(){
+  const merged=mergeGridGeos();if(!merged){notify('Nothing to export','err');return}
+  let geo=merged;if(geo.index)geo=geo.toNonIndexed();
+  const pos=geo.attributes.position.array,nv=pos.length/3;
+  let s='# ISOGRID STUDIO v2 OBJ\n';
+  for(let i=0;i<nv;i++)s+='v '+pos[i*3]+' '+pos[i*3+1]+' '+pos[i*3+2]+'\n';
+  for(let i=0;i<nv;i+=3)s+='f '+(i+1)+' '+(i+2)+' '+(i+3)+'\n';
+  dlBlob(s,'isogrid_export.obj','text/plain');notify('OBJ exported','ok');
+}
+function exportJSON(){
+  const d={shape:S.shape,cellSize:S.cs,ribWidth:S.rw,ribDepth:S.rd,skinThick:S.st,rotation:S.rot,depthMode:S.dm,nodeStyle:S.ns,nodeDia:S.nd,material:S.mat};
+  navigator.clipboard.writeText(JSON.stringify(d,null,2)).then(()=>notify('Params copied','ok')).catch(()=>notify('Copy failed','err'));
+}
+function dlBlob(data,fn,mime){
+  const blob=data instanceof ArrayBuffer?new Blob([data],{type:mime}):new Blob([data],{type:mime});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ==================== UI ====================
+function setupUI(){
+  const pairs=[['sl-cs','in-cs','cs'],['sl-rw','in-rw','rw'],['sl-rd','in-rd','rd'],['sl-st','in-st','st'],['sl-rot','in-rot','rot'],['sl-nd','in-nd','nd']];
+  pairs.forEach(([sl,inp,k])=>{
+    $(sl).addEventListener('input',()=>{$(inp).value=$(sl).value;S[k]=parseFloat($(sl).value);doRegenerate()});
+    $(inp).addEventListener('change',()=>{$(sl).value=$(inp).value;S[k]=parseFloat($(inp).value);doRegenerate()});
+  });
+  $('sg').querySelectorAll('.sb').forEach(b=>{b.addEventListener('click',()=>{$('sg').querySelectorAll('.sb').forEach(x=>x.classList.remove('active'));b.classList.add('active');S.shape=b.dataset.s;regenerate()})});
+  document.querySelectorAll('input[name="dm"]').forEach(r=>{r.addEventListener('change',()=>{S.dm=r.value;regenerate()})});
+  document.querySelectorAll('input[name="ns"]').forEach(r=>{r.addEventListener('change',()=>{S.ns=r.value;const row=$('row-nd');row.style.opacity=r.value==='none'?'.4':'1';row.style.pointerEvents=r.value==='none'?'none':'auto';regenerate()})});
+
+  // Material
+  $('mat-sel').addEventListener('change',e=>{
+    S.mat=e.target.value;
+    const m=MATS[S.mat];
+    $('mat-info').innerHTML='<span>\u03C1: '+m.density+' kg/m\u00B3</span><span>\u03C3y: '+m.yield+' MPa</span><span>E: '+m.E+' GPa</span>';
+    $('custom-mat').classList.toggle('hidden',S.mat!=='custom');
+    if(S.lastSegs.length) updateMetrics(S.lastSegs,S.lastBounds);
+  });
+  $('in-dens').addEventListener('change',()=>{if(S.lastSegs.length)regenerate()});
+
+  // Presets
+  document.querySelectorAll('.pc').forEach(c=>{c.addEventListener('click',()=>{
+    const p=PRESETS[c.dataset.pr];if(!p)return;
+    S.cs=p.cs;S.rw=p.rw;S.rd=p.rd;S.st=p.st;S.shape=p.shape;
+    $('sl-cs').value=$('in-cs').value=p.cs;$('sl-rw').value=$('in-rw').value=p.rw;
+    $('sl-rd').value=$('in-rd').value=p.rd;$('sl-st').value=$('in-st').value=p.st;
+    $('sg').querySelectorAll('.sb').forEach(b=>{b.classList.toggle('active',b.dataset.s===p.shape)});
+    regenerate();notify('Preset applied','ok',1500);
+  })});
+
+  // Sections
+  document.querySelectorAll('.sec-h').forEach(h=>{h.addEventListener('click',()=>h.parentElement.classList.toggle('collapsed'))});
+
+  // Theme toggle
+  const btnTheme=$('btn-theme');
+  let isDark=true;
+  btnTheme.addEventListener('click',()=>{
+    isDark=!isDark;
+    document.documentElement.setAttribute('data-theme',isDark?'':'light');
+    btnTheme.textContent=isDark?'☽':'☀';
+    // Update renderer background
+    renderer.setClearColor(isDark?0x0e0d0c:0xede8e2);
+    floorGrid.material.color.setHex(isDark?0x2a2820:0xc0b8b0);
+  });
+
+  // File
+  $('btn-load').addEventListener('click',()=>$('file-in').click());
+  $('file-in').addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0])});
+  $('drop-zone').addEventListener('click',()=>$('file-in').click());
+  const vp=$('vp');
+  ['dragenter','dragover'].forEach(ev=>{vp.addEventListener(ev,e=>{e.preventDefault();$('drop-zone').classList.add('dragover');$('drop-zone').classList.remove('hidden')})});
+  ['dragleave','drop'].forEach(ev=>{vp.addEventListener(ev,e=>{e.preventDefault();$('drop-zone').classList.remove('dragover')})});
+  vp.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(f)handleFile(f)});
+  document.body.addEventListener('dragover',e=>e.preventDefault());
+  document.body.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer?.files?.[0];if(f)handleFile(f)});
+
+  // Export — show donation popup before file downloads
+  $('btn-exp').addEventListener('click',()=>$('exp-g').classList.toggle('open'));
+  document.addEventListener('click',e=>{if(!$('exp-g').contains(e.target))$('exp-g').classList.remove('open')});
+
+  let _pendingExportFmt=null;
+  function doExportByFmt(fmt){
+    switch(fmt){
+      case'stl-bin':exportSTLBin();break;case'stl-asc':exportSTLAsc();break;
+      case'stl-merged':exportMergedSTL();break;case'step':exportSTEP();break;
+      case'obj':exportOBJ();break;case'json':exportJSON();break;
+    }
+  }
+  function showDonatePopup(fmt){
+    // JSON copy doesn't need donation nag
+    if(fmt==='json'){doExportByFmt(fmt);return}
+    _pendingExportFmt=fmt;
+    $('donate-overlay').classList.add('visible');
+  }
+  $('dm-donate').addEventListener('click',()=>{
+    $('donate-overlay').classList.remove('visible');
+    // Open donation link
+    window.open('https://buymemomo.com/NiteshNeupane','_blank');
+    // Still proceed with the export
+    if(_pendingExportFmt){doExportByFmt(_pendingExportFmt);_pendingExportFmt=null}
+  });
+  $('dm-skip').addEventListener('click',()=>{
+    $('donate-overlay').classList.remove('visible');
+    if(_pendingExportFmt){doExportByFmt(_pendingExportFmt);_pendingExportFmt=null}
+  });
+  // Close on overlay click (outside modal)
+  $('donate-overlay').addEventListener('click',e=>{if(e.target===$('donate-overlay')){$('donate-overlay').classList.remove('visible');if(_pendingExportFmt){doExportByFmt(_pendingExportFmt);_pendingExportFmt=null}}});
+
+  $('exp-m').querySelectorAll('button').forEach(b=>{b.addEventListener('click',()=>{$('exp-g').classList.remove('open');showDonatePopup(b.dataset.fmt)})});
+
+  // Wireframe
+  $('btn-wf').addEventListener('click',()=>{S.wireframe=!S.wireframe;$('btn-wf').classList.toggle('active',S.wireframe);
+    if(modelMesh)modelMesh.material.wireframe=S.wireframe;
+    if(gridGroup)gridGroup.traverse(ch=>{if(ch.material)ch.material.wireframe=S.wireframe});
+  });
+
+  // Floor grid visibility toggle
+  $('btn-gv').addEventListener('click',()=>{
+    S.gridVisible=!S.gridVisible;
+    $('btn-gv').classList.toggle('active',S.gridVisible);
+    if(floorGrid) floorGrid.visible=S.gridVisible;
+  });
+
+  // Clear selection
+  if($('btn-clr'))$('btn-clr').addEventListener('click',()=>{
+    S.selectedFaceIds.clear();
+    updateFaceSelection();
+    notify('Selection cleared','ok',1500);
+  });
+}
+
+let _rt;function debRegen(){clearTimeout(_rt);_rt=setTimeout(regenerate,DEBOUNCE)}
+
+// ==================== STATUS ====================
+function setStatus(type,txt){
+  const d=$('st-dot');d.className='st-dot';
+  d.classList.add(type==='ok'?'idle':type==='warn'?'warn':type==='err'?'err':'idle');
+  $('st-txt').textContent=txt;
+}
+function updateStatus(segCount){
+  let tv=0,tt=0;
+  if(gridGroup)gridGroup.traverse(ch=>{if(ch.isMesh&&ch.geometry){tv+=ch.geometry.attributes.position.count;tt+=ch.geometry.index?ch.geometry.index.count/3:ch.geometry.attributes.position.count/3}});
+  $('s-v').textContent='V:'+Math.round(tv).toLocaleString();
+  $('s-t').textContent='T:'+Math.round(tt).toLocaleString();
+  $('s-r').textContent='R:'+(segCount||0);
+  setStatus('ok',S.fileName?S.fileName+' \u2014 Ready':'Ready');
+}
+function notify(msg,type='',dur=3000){
+  const el=$('notif');el.textContent=msg;el.className=type+' visible';
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.classList.remove('visible')},dur);
+}
+
+// ==================== DEMO ====================
+function loadDemo(){
+  // Interactive demo panel with pocket — great for learning grid parameters
+  const baseW=120, baseH=10, baseD=80;
+  const pW=80, pH=6, pD=50;
+  const wH=baseH-pH;
+  const geos=[];
+  // Bottom plate (full base)
+  const base=new THREE.BoxGeometry(baseW,pH,baseD);
+  base.translate(0,pH/2,0);geos.push(base);
+  // Front rim wall
+  const fw=new THREE.BoxGeometry(baseW,wH,(baseD-pD)/2);
+  fw.translate(0,pH+wH/2,-(pD/2+(baseD-pD)/4));geos.push(fw);
+  // Back rim wall
+  const bw=new THREE.BoxGeometry(baseW,wH,(baseD-pD)/2);
+  bw.translate(0,pH+wH/2,(pD/2+(baseD-pD)/4));geos.push(bw);
+  // Left rim wall
+  const lw=new THREE.BoxGeometry((baseW-pW)/2,wH,pD);
+  lw.translate(-(pW/2+(baseW-pW)/4),pH+wH/2,0);geos.push(lw);
+  // Right rim wall
+  const rw=new THREE.BoxGeometry((baseW-pW)/2,wH,pD);
+  rw.translate((pW/2+(baseW-pW)/4),pH+wH/2,0);geos.push(rw);
+  let merged;
+  try{merged=THREE.BufferGeometryUtils.mergeBufferGeometries(geos)}catch(e){merged=geos[0]}
+  loadModel(merged);
+  // Hide drop zone so mouse orbit works (drag-and-drop still works via viewport handlers)
+  $('drop-zone').classList.add('hidden');
+}
+function offsetGeo(geo,x,y,z){
+  geo.translate(x,y,z);return geo;
+}
+
+// ==================== ANIMATION ====================
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  if(camLight) camLight.position.copy(camera.position);
+  renderer.render(scene,camera);
+  gizmoC.position.copy(camera.position).normalize().multiplyScalar(3);
+  gizmoC.lookAt(0,0,0);gizmoC.up.copy(camera.up);
+  gizmoR.render(gizmoS,gizmoC);
+}
+
+// ==================== INIT ====================
+function init(){initThree();setupUI();loadDemo();animate();setStatus('ok','Ready \u2014 load a model or adjust parameters')}
+function tryInit(){
+  if(typeof THREE!=='undefined'&&typeof THREE.OrbitControls!=='undefined'){
+    try{init()}catch(e){console.error(e);document.body.innerHTML='<div style="color:#f85149;font-family:monospace;padding:40px;background:#0d0f14;height:100vh"><h2>Init Error</h2><pre style="margin-top:20px;color:#8b949e">'+e.message+'\n'+e.stack+'</pre></div>'}
+  }else{document.body.innerHTML='<div style="color:#d29922;font-family:monospace;padding:40px;background:#0d0f14;height:100vh"><h2>ISOGRID STUDIO</h2><p style="margin-top:20px;color:#8b949e">Loading Three.js\u2026 Check internet connection.</p></div>'}
+}
+if(document.readyState==='complete')tryInit();else window.addEventListener('load',tryInit);
+
+</script>
+</body>
+</html>
