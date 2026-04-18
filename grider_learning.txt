@@ -1,0 +1,109 @@
+================================================================================
+GRIDER: PARAMETRIC ISOGRID STUDIO - LEARNING RESOURCE
+================================================================================
+
+--- TECHNICAL DESCRIPTION ---
+Grider (Isogrid Studio) is a browser-based parametric structural design tool 
+specialized in "Lightweighting" aerospace and mechanical components. It automates 
+the process of adding reinforcing rib patterns (isogrids, orthogrids, etc.) to 
+solid surfaces. By importing a 3D model, designers can select faces and 
+instantly generate complex geometry that matches the boundary of their part, 
+calculate real-time mass/stiffness metrics, and export the result back to 
+CAD software like SolidWorks or Fusion 360.
+
+--- KEY IMPORTANT ---
+* CORE STACK: React, Three.js (3D), and Vite (Build).
+* BROWSER-NATIVE CAD: Uses OpenCascade via WebAssembly (WASM) for STEP parsing.
+* PRIVACY: All processing happens on the user's machine (no server uploads).
+* EXPORT: Custom procedural STEP generation creates actual B-Rep geometry.
+
+--- QUESTIONS COVERED ---
+1. How is the Grider page created inside niteshneupane.com.np?
+2. Why is there no "simple" .html file for the webtool?
+3. How is the STEP file displayed on the webpage (since it is just coordinates)?
+4. What are the grid structure theories applied in this tool?
+5. How is the grid bounded within a selected surface?
+6. How does the code know where to put the nodes?
+7. How is the STEP file exported?
+8. Where are the material properties imported from?
+9. How are faces detected on a complex 3D model?
+10. How does the tool calculate mass and stiffness metrics?
+11. What is the role of OpenCascade (WASM) in this project?
+12. How does the "Node Hole" feature impact the structural design?
+
+================================================================================
+ANSWERS
+================================================================================
+
+1. How is the Grider page created inside niteshneupane.com.np?
+   * Integration: It is hosted as a sub-project in the /grid/ directory of the main website.
+   * Linking: The main portfolio header contains a "Tools" dropdown menu with a direct link to the Grider application.
+   * Deployment: It is deployed as a standalone React build, linked via href="./grid/" in the portfolio's index.html.
+
+2. Why is there no "simple" .html file for the webtool?
+   * Modern Stack: Grider is a "Single Page Application" (SPA) built with React and Vite. 
+   * Complexity: It requires modular JavaScript, CSS-in-JS, and WebAssembly, which cannot be contained in a single static HTML file without an extremely long and unmaintainable script tag.
+   * Build Process: The "src" code is compiled/minified into a "dist" folder for performance and compatibility.
+
+3. How is the STEP file displayed on the webpage?
+   * Parsing: The tool uses a library called "occt-import-js" (a WASM port of OpenCascade).
+   * Conversion: It reads the binary STEP data, extracts the "Manifold Solid Brep" information, and converts it into Three.js BufferGeometry (points and triangles).
+   * Rendering: Three.js then uses the GPU to draw these triangles as a solid 3D object in the canvas.
+
+4. What are the grid structure theories applied in this tool?
+   * Isogrid: Equilateral triangles (60°) providing isotropic (uniform) strength.
+   * Orthogrid: Square patterns (90°) for bidirectional stiffness.
+   * Hexagonal: Honeycomb-inspired shapes for maximum strength-to-weight ratio.
+   * Rhombus/Rectangular: Specialized directional patterns for asymmetric loading.
+   * Orthogrid-Diagonal: Square grid with additional cross-braces for shear resistance.
+
+5. How is the grid bounded within a selected surface?
+   * Projection: The 3D vertices of the selected face are projected onto a 2D local coordinate system (Plane of the normal).
+   * Clipping: Every rib segment is tested against the face boundaries using a 2D "Point-in-Polygon" algorithm.
+   * Refinement: Segments extending outside the face are mathematically clipped or removed to ensure the grid never escapes the edges.
+
+6. How does the code know where to put the nodes?
+   * Intersection Math: The code runs a pairwise intersection algorithm between all generated grid segments.
+   * Candidate Nodes: It identifies where lines cross and marks these as "Node Points."
+   * Geometry Placement: Circular or hexagonal node geometry is then instantiated at these precise locations to provide structural "bosses."
+
+7. How is the STEP file exported?
+   * Procedural Generation: The tool contains a custom STEP generator function that writes the raw text of an ISO-10303-21 file.
+   * Data Mapping: It maps the triangles of the finished grid into STEP entities like CARTESIAN_POINT, DIRECTION, LINE, and ADVANCED_FACE.
+   * Solid Reconstruction: It organizes these into a "CLOSED_SHELL" to ensure the CAD software recognizes it as a solid body.
+
+8. Where are the material properties imported from?
+   * Constants: Properties are stored in a constant object (MATS) within the source code (Studio.tsx).
+   * Data: It includes density, yield strength, and Young's Modulus for materials like Al 6061-T6, Ti-6Al-4V, and various 3D printing filaments.
+   * Customization: Users can also input their own properties via the "Custom" material UI.
+
+9. How are faces detected on a complex 3D model?
+   * Triangle Grouping: The tool groups triangles that share the same normal vector (within a small tolerance).
+   * Connectivity: It checks if triangles are touching (sharing edges) to ensure separate faces are detected individually.
+
+10. How does the tool calculate mass and stiffness metrics?
+    * Integration: It calculates the volume of the skin (face area * thickness) and adds the volume of all rib segments (length * width * depth).
+    * Density: Multiplies total volume by the density of the selected material to get mass.
+    * Stiffness (δ): Uses a structural efficiency formula relative to the cell size (L) and rib dimensions.
+
+11. What is the role of OpenCascade (WASM) in this project?
+    * Professional Grade: OpenCascade is the same engine used in FreeCAD.
+    * Bridge: It serves as the bridge between standard CAD files (STEP) and web graphics (WebGL).
+
+12. How does the "Node Hole" feature impact the structural design?
+    * Weight Reduction: These "blind holes" remove material from the densest part of the grid (the nodes) where it is often non-structural.
+    * Fasteners: They can also serve as pilot holes for mounting hardware or internal components.
+
+================================================================================
+WAY FORWARD
+================================================================================
+* Solid-to-Solid Merging: Integrating the grid directly into the original model's B-Rep during export.
+* FEA Integration: Simulating stress directly in the browser to optimize rib width automatically.
+* Support for Curved Surfaces: Developing algorithms for grids on cylindrical or spherical faces.
+
+================================================================================
+RESOURCES
+================================================================================
+* WebAssembly & OpenCascade: https://github.com/kovacsv/occt-import-js
+* Isogrid Theory (NASA): https://ntrs.nasa.gov/citations/19730011151
+* Three.js Documentation: https://threejs.org/docs/
