@@ -265,6 +265,34 @@ export default function Studio() {
   const [adDismissed, setAdDismissed] = useState(false);
   const [adblockNotice, setAdblockNotice] = useState(false);
   const [adblockDismissed, setAdblockDismissed] = useState(false);
+  const adInitRef = useRef(false);
+
+  // Adblocker detection — check if adsbygoogle script loaded after 3s
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // @ts-ignore
+      if (typeof window.adsbygoogle === 'undefined') {
+        setAdblockNotice(true);
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize AdSense ad slot when sidebar mounts
+  useEffect(() => {
+    if (!adDismissed && !adInitRef.current) {
+      const timer = setTimeout(() => {
+        try {
+          // @ts-ignore
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+          adInitRef.current = true;
+        } catch (e) {
+          console.warn('AdSense init error:', e);
+        }
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [adDismissed]);
 
   // Three.js refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1578,14 +1606,10 @@ export default function Studio() {
           <span className="ad-label">Sponsored</span>
           <button className="ad-close" onClick={() => setAdDismissed(true)} title="Close ad">&times;</button>
           <div className="ad-slot" id="ad-slot">
-            {/* Replace this placeholder with your Google AdSense / ad network code */}
-            <div className="ad-slot-placeholder">Ad Space<br />160×600</div>
-            {/* Example AdSense code (uncomment and replace with your actual ad unit):
             <ins className="adsbygoogle"
                  style={{ display: 'inline-block', width: 160, height: 600 }}
-                 data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                 data-ad-slot="XXXXXXXXXX" />
-            */}
+                 data-ad-client="ca-pub-6497701089961965"
+                 data-ad-slot="auto" />
           </div>
         </aside>
       )}
