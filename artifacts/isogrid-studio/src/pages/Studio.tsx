@@ -262,6 +262,9 @@ export default function Studio() {
   const [pendingExportFmt, setPendingExportFmt] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ msg: string; type: string; visible: boolean }>({ msg: "", type: "", visible: false });
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [adDismissed, setAdDismissed] = useState(false);
+  const [adblockNotice, setAdblockNotice] = useState(false);
+  const [adblockDismissed, setAdblockDismissed] = useState(false);
 
   // Three.js refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -891,16 +894,74 @@ export default function Studio() {
   }
 
   function loadDemo() {
-    const baseW = 120, baseH = 10, baseD = 80, pW = 80, pH = 6, pD = 50, wH = baseH - pH;
+    // Demo: pocketed panel with pocket floor isolated as a separate face
+    // The pocket floor is a thin standalone plane with small gaps from walls
+    // so BFS face detection correctly identifies it as a distinct face.
+    const baseW = 120, baseH = 10, baseD = 80;
+    const pW = 80, pD = 50;
+    const pH = 6; // pocket depth (base thickness)
+    const wH = baseH - pH; // wall height above pocket floor
+    const gap = 0.15; // gap between floor and walls for face separation
+
     const geos: THREE.BufferGeometry[] = [];
-    const base = new THREE.BoxGeometry(baseW, pH, baseD); base.translate(0, pH / 2, 0); geos.push(base);
-    const fw = new THREE.BoxGeometry(baseW, wH, (baseD - pD) / 2); fw.translate(0, pH + wH / 2, -(pD / 2 + (baseD - pD) / 4)); geos.push(fw);
-    const bw = new THREE.BoxGeometry(baseW, wH, (baseD - pD) / 2); bw.translate(0, pH + wH / 2, (pD / 2 + (baseD - pD) / 4)); geos.push(bw);
-    const lw = new THREE.BoxGeometry((baseW - pW) / 2, wH, 50); lw.translate(-(pW / 2 + (baseW - pW) / 4), pH + wH / 2, 0); geos.push(lw);
-    const rw2 = new THREE.BoxGeometry((baseW - pW) / 2, wH, 50); rw2.translate((pW / 2 + (baseW - pW) / 4), pH + wH / 2, 0); geos.push(rw2);
+
+    // Bottom plate (full base, only below the pocket floor)
+    const bottomT = 1;
+    const bottom = new THREE.BoxGeometry(baseW, bottomT, baseD);
+    bottom.translate(0, bottomT / 2, 0);
+    geos.push(bottom);
+
+    // Pocket floor — standalone thin plane, separated by gaps
+    const floorT = 0.5;
+    const floorY = bottomT + gap;
+    const pocketFloor = new THREE.BoxGeometry(pW - gap * 2, floorT, pD - gap * 2);
+    pocketFloor.translate(0, floorY + floorT / 2, 0);
+    geos.push(pocketFloor);
+
+    // Raised border / walls around pocket (sit on the bottom plate)
+    const wallBase = bottomT + gap + floorT + gap;
+    const wallH = baseH - wallBase;
+
+    // Front wall
+    const fw = new THREE.BoxGeometry(baseW, wallH + wallBase - bottomT - gap, (baseD - pD) / 2);
+    fw.translate(0, bottomT + gap + (wallH + wallBase - bottomT - gap) / 2, -(pD / 2 + (baseD - pD) / 4));
+    geos.push(fw);
+
+    // Back wall
+    const bw = new THREE.BoxGeometry(baseW, wallH + wallBase - bottomT - gap, (baseD - pD) / 2);
+    bw.translate(0, bottomT + gap + (wallH + wallBase - bottomT - gap) / 2, (pD / 2 + (baseD - pD) / 4));
+    geos.push(bw);
+
+    // Left wall
+    const lw = new THREE.BoxGeometry((baseW - pW) / 2, wallH + wallBase - bottomT - gap, pD);
+    lw.translate(-(pW / 2 + (baseW - pW) / 4), bottomT + gap + (wallH + wallBase - bottomT - gap) / 2, 0);
+    geos.push(lw);
+
+    // Right wall
+    const rw2 = new THREE.BoxGeometry((baseW - pW) / 2, wallH + wallBase - bottomT - gap, pD);
+    rw2.translate((pW / 2 + (baseW - pW) / 4), bottomT + gap + (wallH + wallBase - bottomT - gap) / 2, 0);
+    geos.push(rw2);
+
     let merged: THREE.BufferGeometry;
     try { merged = mergeGeometries(geos); } catch { merged = geos[0]; }
     loadModel(merged);
+
+    // Auto-select the pocket floor face after loading
+    // The pocket floor should be an upward-facing face with area close to pW*pD
+    setTimeout(() => {
+      const S = stRef.current;
+      const targetArea = (pW - gap * 2) * (pD - gap * 2);
+      let bestFace = 0, bestDiff = Infinity;
+      for (const fg of S.faceGroups) {
+        if (fg.normal.y > 0.9) { // upward-facing
+          const diff = Math.abs(fg.area - targetArea);
+          if (diff < bestDiff) { bestDiff = diff; bestFace = fg.id; }
+        }
+      }
+      if (bestDiff < targetArea * 0.5) {
+        selectFace(bestFace);
+      }
+    }, 100);
   }
 
   // Three.js init
@@ -1166,7 +1227,7 @@ export default function Studio() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+    <div className={`flex flex-col h-screen overflow-hidden ${!adDismissed ? 'has-ad-sidebar' : ''}`} style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
 
       {/* HEADER */}
       <header className="flex items-center justify-between px-4 shrink-0" style={{ ...S.header, height: 46 }}>
@@ -1510,6 +1571,34 @@ export default function Studio() {
       )}
 
       {showExportMenu && <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />}
+
+      {/* AD SIDEBAR */}
+      {!adDismissed && (
+        <aside className="ad-sidebar" id="ad-sidebar">
+          <span className="ad-label">Sponsored</span>
+          <button className="ad-close" onClick={() => setAdDismissed(true)} title="Close ad">&times;</button>
+          <div className="ad-slot" id="ad-slot">
+            {/* Replace this placeholder with your Google AdSense / ad network code */}
+            <div className="ad-slot-placeholder">Ad Space<br />160×600</div>
+            {/* Example AdSense code (uncomment and replace with your actual ad unit):
+            <ins className="adsbygoogle"
+                 style={{ display: 'inline-block', width: 160, height: 600 }}
+                 data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                 data-ad-slot="XXXXXXXXXX" />
+            */}
+          </div>
+        </aside>
+      )}
+
+      {/* ADBLOCKER NOTICE */}
+      {adblockNotice && !adblockDismissed && (
+        <div className="adblock-notice" id="adblock-notice">
+          <button className="abn-close" onClick={() => setAdblockDismissed(true)} title="Dismiss">&times;</button>
+          <div className="abn-title"><span>🛡️</span> Ad Blocker Detected</div>
+          <p className="abn-msg">Hey! It looks like you're using an ad blocker. This tool is <strong>100% free</strong> and ads help keep it that way. Consider whitelisting this site to support development. 🙏</p>
+          <button className="abn-dismiss" onClick={() => setAdblockDismissed(true)}>Got it, thanks!</button>
+        </div>
+      )}
     </div>
   );
 }
