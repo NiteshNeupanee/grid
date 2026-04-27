@@ -3,8 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ISOGRID STUDIO — Parametric Rib-Grid Design Tool</title>
-<meta name="description" content="Browser-based parametric isogrid design tool for aerospace and mechanical engineering.">
+<title>ISOGRID STUDIO — Free Parametric Isogrid Design Tool for Aerospace Engineering</title>
+<meta name="description" content="Free browser-based parametric isogrid and rib-grid design tool for aerospace and mechanical engineering. Import STEP/STL/OBJ models, generate isogrid, hex, square patterns with real-time 3D preview, NASA presets, and multi-format export. Built by Nitesh Neupane.">
+<meta name="keywords" content="isogrid, isogrid design tool, parametric grid, aerospace engineering tool, rib grid, stiffener design, isogrid generator, three.js CAD, free engineering tool, STEP viewer, STL viewer, hex grid, orthogrid, structural panel design, lightweight structures, NASA isogrid">
+<meta name="author" content="Nitesh Neupane">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#e8a030">
+<link rel="canonical" href="https://niteshneupane.com.np/grid/">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="ISOGRID STUDIO — Free Parametric Isogrid Design Tool">
+<meta property="og:description" content="Free browser-based parametric isogrid design tool for aerospace engineering. Import CAD models, generate grid patterns, preview in 3D, and export STL/STEP/OBJ.">
+<meta property="og:url" content="https://niteshneupane.com.np/grid/">
+<meta property="og:image" content="https://niteshneupane.com.np/grid/opengraph.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="Nitesh Neupane">
+<meta property="og:locale" content="en_US">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ISOGRID STUDIO — Free Parametric Isogrid Design Tool">
+<meta name="twitter:description" content="Free browser-based isogrid design tool for aerospace engineering. Import models, generate patterns, export STL/STEP/OBJ.">
+<meta name="twitter:image" content="https://niteshneupane.com.np/grid/opengraph.jpg">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ISOGRID STUDIO",
+  "description": "Free browser-based parametric isogrid and rib-grid design tool for aerospace and mechanical engineering. Supports STEP, STL, OBJ import with real-time 3D preview and multi-format export.",
+  "url": "https://niteshneupane.com.np/grid/",
+  "applicationCategory": "EngineeringApplication",
+  "operatingSystem": "Web Browser",
+  "browserRequirements": "Requires WebGL support",
+  "softwareVersion": "2.0",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Nitesh Neupane",
+    "url": "https://niteshneupane.com.np"
+  },
+  "screenshot": "https://niteshneupane.com.np/grid/opengraph.jpg",
+  "featureList": [
+    "Isogrid, Square, Hex, Rhombus, Rectangular, Orthogrid patterns",
+    "STEP, STL, OBJ file import",
+    "Real-time 3D preview with Three.js",
+    "Multi-face selection",
+    "NASA presets",
+    "Material library (Aluminum, Titanium, Steel, Polymers)",
+    "Mass and stiffness metrics",
+    "Export to STL, STEP, OBJ formats"
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -233,6 +293,30 @@ input,select{font-family:var(--f-mono);color:var(--text-1)}
 .dm-divider{display:flex;align-items:center;gap:8px;width:100%;margin:4px 0;color:var(--text-3);font-size:9px;text-transform:uppercase;letter-spacing:1px}
 .dm-divider::before,.dm-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 .dm-heart{position:absolute;top:12px;right:16px;font-size:10px;color:var(--text-3);font-family:var(--f-mono);letter-spacing:.3px}
+
+/* ===== AD SIDEBAR ===== */
+.ad-sidebar{position:fixed;right:0;top:var(--hdr-h);bottom:var(--stat-h);width:170px;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px 5px;background:var(--bg-panel);border-left:1px solid var(--border);opacity:0;animation:adFadeIn .6s ease 2.5s forwards;transition:background .25s}
+@keyframes adFadeIn{to{opacity:1}}
+.ad-sidebar.dismissed{display:none!important}
+.ad-label{font-size:7px;font-family:var(--f-mono);color:var(--text-3);text-transform:uppercase;letter-spacing:1.2px;opacity:.5}
+.ad-close{position:absolute;top:4px;right:6px;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3);background:none;border:1px solid transparent;border-radius:2px;cursor:pointer;opacity:.5;transition:all .15s}
+.ad-close:hover{opacity:1;color:var(--accent);border-color:var(--border-h)}
+.ad-slot{width:160px;min-height:600px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border:1px dashed var(--border-h);border-radius:var(--r);overflow:hidden}
+.ad-slot-placeholder{font-size:9px;font-family:var(--f-mono);color:var(--text-3);text-align:center;padding:12px;line-height:1.6;opacity:.4}
+@media(max-width:1199px){.ad-sidebar{display:none!important}}
+
+/* ===== ADBLOCKER NOTICE ===== */
+.adblock-notice{position:fixed;bottom:40px;right:16px;z-index:300;max-width:340px;background:var(--bg-panel);border:1px solid var(--border-h);border-left:3px solid var(--warn);border-radius:var(--r);padding:14px 18px;box-shadow:var(--shadow);opacity:0;transform:translateY(12px);animation:abNoticeIn .4s ease .3s forwards;font-family:var(--f-ui)}
+.adblock-notice.dismissed{display:none!important}
+@keyframes abNoticeIn{to{opacity:1;transform:translateY(0)}}
+.adblock-notice .abn-title{font-size:12px;font-weight:700;color:var(--text-1);font-family:var(--f-cond);letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.adblock-notice .abn-title .abn-icon{font-size:14px}
+.adblock-notice .abn-msg{font-size:11px;color:var(--text-2);line-height:1.6;margin-bottom:10px}
+.adblock-notice .abn-msg strong{color:var(--accent);font-weight:600}
+.adblock-notice .abn-dismiss{font-size:10px;font-family:var(--f-cond);font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);background:var(--bg-input);border:1px solid var(--border-h);padding:5px 14px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.adblock-notice .abn-dismiss:hover{border-color:var(--accent);color:var(--accent)}
+.abn-close{position:absolute;top:6px;right:8px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3);background:none;border:none;cursor:pointer;opacity:.6;transition:opacity .15s}
+.abn-close:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -373,6 +457,30 @@ input,select{font-family:var(--f-mono);color:var(--text-1)}
 </footer>
 </div>
 <div id="notif"></div>
+
+<!-- Ad Sidebar (right side, wide screens only) -->
+<aside class="ad-sidebar" id="ad-sidebar">
+  <span class="ad-label">Sponsored</span>
+  <button class="ad-close" id="ad-close" title="Close ad">&times;</button>
+  <div class="ad-slot" id="ad-slot">
+    <!-- Replace this placeholder with your Google AdSense / ad network code -->
+    <div class="ad-slot-placeholder" id="ad-placeholder">Ad Space<br>160&times;600</div>
+    <!-- Example AdSense code (uncomment and replace with your actual ad unit):
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:160px;height:600px"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+    -->
+  </div>
+</aside>
+
+<!-- Adblocker Notice -->
+<div class="adblock-notice" id="adblock-notice" style="display:none">
+  <button class="abn-close" id="abn-close" title="Dismiss">&times;</button>
+  <div class="abn-title"><span class="abn-icon">🛡️</span> Ad Blocker Detected</div>
+  <p class="abn-msg">Hey! It looks like you're using an ad blocker. This tool is <strong>100% free</strong> and ads help keep it that way. Consider whitelisting this site to support development. 🙏</p>
+  <button class="abn-dismiss" id="abn-dismiss">Got it, thanks!</button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -1724,6 +1832,43 @@ function tryInit(){
   }else{document.body.innerHTML='<div style="color:#d29922;font-family:monospace;padding:40px;background:#0d0f14;height:100vh"><h2>ISOGRID STUDIO</h2><p style="margin-top:20px;color:#8b949e">Loading Three.js\u2026 Check internet connection.</p></div>'}
 }
 if(document.readyState==='complete')tryInit();else window.addEventListener('load',tryInit);
+
+// ==================== AD SIDEBAR & ADBLOCKER DETECTION ====================
+(function(){
+  // Close ad sidebar
+  const adClose=document.getElementById('ad-close');
+  const adSidebar=document.getElementById('ad-sidebar');
+  if(adClose&&adSidebar){
+    adClose.addEventListener('click',function(){adSidebar.classList.add('dismissed')});
+  }
+
+  // Close adblocker notice
+  const abnClose=document.getElementById('abn-close');
+  const abnDismiss=document.getElementById('abn-dismiss');
+  const abnNotice=document.getElementById('adblock-notice');
+  function dismissAbNotice(){if(abnNotice){abnNotice.classList.add('dismissed');try{localStorage.setItem('isogrid_abn_dismissed','1')}catch(e){}}}
+  if(abnClose)abnClose.addEventListener('click',dismissAbNotice);
+  if(abnDismiss)abnDismiss.addEventListener('click',dismissAbNotice);
+
+  // Adblocker detection — create a bait element that ad blockers typically hide
+  function detectAdBlocker(){
+    // Don't show again if user already dismissed
+    try{if(localStorage.getItem('isogrid_abn_dismissed')==='1')return}catch(e){}
+    var bait=document.createElement('div');
+    bait.className='ad-banner ads adsbox ad-placeholder';
+    bait.style.cssText='position:absolute;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+    bait.innerHTML='&nbsp;';
+    document.body.appendChild(bait);
+    setTimeout(function(){
+      var blocked=!bait||bait.offsetHeight===0||bait.offsetParent===null||getComputedStyle(bait).display==='none'||getComputedStyle(bait).visibility==='hidden';
+      if(blocked&&abnNotice){
+        abnNotice.style.display='';
+      }
+      if(bait&&bait.parentNode)bait.parentNode.removeChild(bait);
+    },800);
+  }
+  window.addEventListener('load',function(){setTimeout(detectAdBlocker,1500)});
+})();
 
 </script>
 </body>

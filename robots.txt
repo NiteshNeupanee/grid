@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://niteshneupane.com.np/grid/sitemap.xml
