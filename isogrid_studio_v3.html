@@ -1783,66 +1783,63 @@ function notify(msg,type='',dur=3000){
 
 // ==================== DEMO ====================
 function loadDemo(){
-  // Interactive demo panel with pocket — great for learning grid parameters
-  // Build geometry carefully so pocket floor is a SEPARATE face from the rim top
-  const baseW=120, baseH=10, baseD=80;
-  const pW=80, pH=6, pD=50;
-  const wH=baseH-pH; // wall height above pocket floor
-  const rimX=(baseW-pW)/2; // rim width on each X side
-  const rimZ=(baseD-pD)/2; // rim width on each Z side
+  // Build a pocketed demo panel.
+  // Key: the pocket floor MUST be a single, isolated face for the face detector.
+  // We achieve this by building the shell (base + walls) as one merged piece, 
+  // then adding a thin, standalone pocket floor slab that does NOT share edges 
+  // with any wall geometry. A tiny gap (~0.05mm) ensures no shared vertices.
+  
+  const W=120, D=80, H=10;  // overall outer dimensions
+  const pW=80, pD=50, pH=6; // pocket: width, depth, floor height from bottom
+  const wH=H-pH;            // wall height above pocket floor
+  const rimX=(W-pW)/2;      // rim width X side (20)
+  const rimZ=(D-pD)/2;      // rim width Z side (15)
+  const GAP=0.05;           // tiny gap so pocket floor doesn't share edges with walls
 
-  const geos=[];
+  const shellGeos=[];
 
-  // 1. Full bottom plate (under everything, at y=0..pH)
-  const bottom=new THREE.BoxGeometry(baseW,pH,baseD);
-  bottom.translate(0,pH/2,0);geos.push(bottom);
+  // Solid base under everything (y=0 to y=pH)
+  const base=new THREE.BoxGeometry(W,pH,D);
+  base.translate(0,pH/2,0);shellGeos.push(base);
 
-  // 2. Four rim walls (sit on top of bottom plate at y=pH..baseH)
-  // Front rim wall (full width)
-  const fw=new THREE.BoxGeometry(baseW,wH,rimZ);
-  fw.translate(0,pH+wH/2,-(pD/2+rimZ/2));geos.push(fw);
-  // Back rim wall (full width)
-  const bw=new THREE.BoxGeometry(baseW,wH,rimZ);
-  bw.translate(0,pH+wH/2,(pD/2+rimZ/2));geos.push(bw);
-  // Left rim wall (only pocket depth, not overlapping front/back)
+  // Four rim walls above base (y=pH to y=H)
+  const fw=new THREE.BoxGeometry(W,wH,rimZ);
+  fw.translate(0,pH+wH/2,-(pD/2+rimZ/2));shellGeos.push(fw);
+  const bw=new THREE.BoxGeometry(W,wH,rimZ);
+  bw.translate(0,pH+wH/2,(pD/2+rimZ/2));shellGeos.push(bw);
   const lw=new THREE.BoxGeometry(rimX,wH,pD);
-  lw.translate(-(pW/2+rimX/2),pH+wH/2,0);geos.push(lw);
-  // Right rim wall (only pocket depth)
+  lw.translate(-(pW/2+rimX/2),pH+wH/2,0);shellGeos.push(lw);
   const rw=new THREE.BoxGeometry(rimX,wH,pD);
-  rw.translate((pW/2+rimX/2),pH+wH/2,0);geos.push(rw);
+  rw.translate((pW/2+rimX/2),pH+wH/2,0);shellGeos.push(rw);
 
-  // 3. Pocket floor slab — separate geometry so face detection isolates it
-  //    This thin slab sits right at y=pH and has its own upward-facing face
-  const pocketFloor=new THREE.BoxGeometry(pW,0.01,pD);
-  pocketFloor.translate(0,pH,0);geos.push(pocketFloor);
+  // Standalone pocket floor slab — slightly smaller and elevated by GAP 
+  // so it shares NO edges with the base top or wall bottoms
+  const pocketFloor=new THREE.BoxGeometry(pW-GAP*2, 0.02, pD-GAP*2);
+  pocketFloor.translate(0, pH+0.01+GAP, 0);shellGeos.push(pocketFloor);
 
   let merged;
-  try{merged=THREE.BufferGeometryUtils.mergeBufferGeometries(geos)}catch(e){merged=geos[0]}
+  try{merged=THREE.BufferGeometryUtils.mergeBufferGeometries(shellGeos)}catch(e){merged=shellGeos[0]}
   loadModel(merged);
 
-  // Auto-select the pocket floor face
-  // Find the face with normal ~(0,1,0) whose centroid Y is closest to pH and area matches pW*pD
+  // Auto-select the pocket floor face (upward normal, area ≈ pW*pD, centroid.y ≈ pH)
   const targetArea=pW*pD;
-  const targetY=pH;
   let bestFace=0,bestScore=Infinity;
   for(let i=0;i<S.faceGroups.length;i++){
     const fg=S.faceGroups[i];
-    if(fg.normal.y<0.9) continue; // must be upward-facing
+    if(fg.normal.y<0.9) continue;
+    // Score by area match (pocket floor ~4000mm² vs base top ~9600mm²)
     const areaDiff=Math.abs(fg.area-targetArea)/targetArea;
-    const yDiff=Math.abs(fg.centroid.y-targetY);
-    // Prefer faces close to pocket area and at pocket Y height
-    // The base top is at y=pH too but its area is 9600 (much larger)
-    const score=areaDiff*10+yDiff;
+    // Also prefer faces near pocket height, not at y=0 (base bottom) or y=H (rim top)
+    const yDiff=Math.abs(fg.centroid.y-pH);
+    const score=areaDiff+yDiff*0.01;
     if(score<bestScore){bestScore=score;bestFace=i}
   }
   selectFace(bestFace);
 
-  // Set label
   $('vp-label').textContent='ISOGRID STUDIO — Demo Panel';
-
-  // Hide drop zone so mouse orbit works (drag-and-drop still works via viewport handlers)
   $('drop-zone').classList.add('hidden');
 }
+
 
 function offsetGeo(geo,x,y,z){
   geo.translate(x,y,z);return geo;
