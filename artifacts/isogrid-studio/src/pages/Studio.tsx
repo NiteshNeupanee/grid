@@ -50,11 +50,7 @@ const MATS: Record<string, { name: string; density: number; yield: number; E: nu
   custom:  { name: "Custom",              density: 2700,  yield: 276,  E: 70    },
 };
 
-const PRESETS: Record<string, { cs: number; rw: number; rd: number; st: number; shape: string }> = {
-  nasa:  { cs: 25, rw: 2,   rd: 8,  st: 1.5, shape: "isogrid" },
-  light: { cs: 40, rw: 1.5, rd: 6,  st: 1,   shape: "isogrid" },
-  stiff: { cs: 15, rw: 3,   rd: 10, st: 2.5, shape: "isogrid" },
-};
+
 
 const SHAPES = [
   { id: "isogrid",     label: "Isogrid",   icon: Triangle    },
@@ -93,7 +89,7 @@ function pLines(angle: number, sp: number, bounds: Bounds): Seg[] {
 }
 
 function edgeKey(x1: number, z1: number, x2: number, z2: number): string {
-  const P = 50;
+  const P = 200;
   let ax = Math.round(x1 * P), az = Math.round(z1 * P), bx = Math.round(x2 * P), bz = Math.round(z2 * P);
   if (ax > bx || (ax === bx && az > bz)) { [ax, bx] = [bx, ax]; [az, bz] = [bz, az]; }
   return `${ax},${az}:${bx},${bz}`;
@@ -102,9 +98,10 @@ function edgeKey(x1: number, z1: number, x2: number, z2: number): string {
 function genHex(L: number, bounds: Bounds, rot: number): Seg[] {
   const cr = Math.cos(rot), sr = Math.sin(rot), colSp = L * 1.5, rowSp = L * Math.sqrt(3);
   const cx = (bounds.minX + bounds.maxX) / 2, cz = (bounds.minZ + bounds.maxZ) / 2;
-  const diag = Math.sqrt(Math.pow(bounds.maxX - bounds.minX, 2) + Math.pow(bounds.maxZ - bounds.minZ, 2)) / 2 + L * 3;
+  const diag = Math.sqrt(Math.pow(bounds.maxX - bounds.minX, 2) + Math.pow(bounds.maxZ - bounds.minZ, 2)) / 2 + L * 2;
   const nC = Math.ceil(diag / colSp) + 1, nR = Math.ceil(diag / rowSp) + 1;
   const es = new Set<string>(), segs: Seg[] = [];
+  const sideLen = L; // exact hex side length for proper segment filtering
   for (let col = -nC; col <= nC; col++) for (let row = -nR; row <= nR; row++) {
     const hx = col * colSp, hz = row * rowSp + (Math.abs(col) % 2 ? rowSp / 2 : 0);
     const rx = hx * cr - hz * sr + cx, rz = hx * sr + hz * cr + cz;
@@ -112,7 +109,15 @@ function genHex(L: number, bounds: Bounds, rot: number): Seg[] {
       const a1 = Math.PI / 3 * i + rot, a2 = Math.PI / 3 * ((i + 1) % 6) + rot;
       const px1 = rx + L * Math.cos(a1), pz1 = rz + L * Math.sin(a1), px2 = rx + L * Math.cos(a2), pz2 = rz + L * Math.sin(a2);
       const k = edgeKey(px1, pz1, px2, pz2);
-      if (!es.has(k)) { es.add(k); const c = clipLine(px1, pz1, px2, pz2, bounds); if (c) segs.push(c); }
+      if (!es.has(k)) {
+        es.add(k);
+        const c = clipLine(px1, pz1, px2, pz2, bounds);
+        if (c) {
+          // Filter out stub segments that are too short (artifacts of clipping)
+          const sl = Math.sqrt((c.x2 - c.x1) ** 2 + (c.z2 - c.z1) ** 2);
+          if (sl > sideLen * 0.15) segs.push(c);
+        }
+      }
     }
   }
   return segs;
@@ -241,6 +246,8 @@ export default function Studio() {
   const [nodeHole, setNodeHole] = useState(false);
   const [nodeHoleDia, setNodeHoleDia] = useState(3);
   const [wallEnabled, setWallEnabled] = useState(true);
+  const [cornerMode, setCornerMode] = useState<"none" | "chamfer" | "fillet">("fillet");
+  const [cornerRadius, setCornerRadius] = useState(1.5);
   const [fileName, setFileName] = useState("");
   const [modelLoaded, setModelLoaded] = useState(false);
   const [selectedFaceIds, setSelectedFaceIds] = useState<Set<number>>(new Set());
@@ -262,37 +269,6 @@ export default function Studio() {
   const [pendingExportFmt, setPendingExportFmt] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ msg: string; type: string; visible: boolean }>({ msg: "", type: "", visible: false });
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [adDismissed, setAdDismissed] = useState(false);
-  const [adblockNotice, setAdblockNotice] = useState(false);
-  const [adblockDismissed, setAdblockDismissed] = useState(false);
-  const adInitRef = useRef(false);
-
-  // Adblocker detection — check if adsbygoogle script loaded after 3s
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      // @ts-ignore
-      if (typeof window.adsbygoogle === 'undefined') {
-        setAdblockNotice(true);
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Initialize AdSense ad slot when sidebar mounts
-  useEffect(() => {
-    if (!adDismissed && !adInitRef.current) {
-      const timer = setTimeout(() => {
-        try {
-          // @ts-ignore
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          adInitRef.current = true;
-        } catch (e) {
-          console.warn('AdSense init error:', e);
-        }
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [adDismissed]);
 
   // Three.js refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -461,6 +437,90 @@ export default function Studio() {
     return makeRibGeo(boundarySegs, Math.max(rw, 2), rh);
   }
 
+  // Build fillet geometry — 45° chamfer prisms along rib-skin junctions for CNC milling
+  function makeFilletGeo(segs: Seg[], rw: number, filletR: number): THREE.BufferGeometry | null {
+    if (!segs.length || filletR <= 0) return null;
+    const geos: THREE.BufferGeometry[] = [];
+    const fr = filletR;
+    const halfW = rw / 2;
+    const tmp = new THREE.Object3D();
+    for (const s of segs) {
+      const dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+      const len = Math.sqrt(dx * dx + dz * dz);
+      if (len < 0.5) continue;
+      const midX = (s.x1 + s.x2) / 2, midZ = (s.z1 + s.z2) / 2;
+      const angle = Math.atan2(-dz, dx);
+      const hl = len / 2;
+      for (const side of [-1, 1]) {
+        const zo = side * halfW, zf = zo + side * fr;
+        // Triangular prism: 8 triangles (2 end caps + 3 quads)
+        const positions = new Float32Array([
+          // Front cap
+          -hl, 0, zo,  -hl, 0, zf,  -hl, fr, zo,
+          // Back cap
+          hl, 0, zo,   hl, fr, zo,  hl, 0, zf,
+          // Bottom quad
+          -hl, 0, zo,  hl, 0, zo,   hl, 0, zf,
+          -hl, 0, zo,  hl, 0, zf,   -hl, 0, zf,
+          // Inner vertical quad
+          -hl, 0, zo,  -hl, fr, zo, hl, fr, zo,
+          -hl, 0, zo,  hl, fr, zo,  hl, 0, zo,
+          // Hypotenuse (chamfer face)
+          -hl, 0, zf,  hl, 0, zf,   hl, fr, zo,
+          -hl, 0, zf,  hl, fr, zo,  -hl, fr, zo,
+        ]);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        tmp.position.set(midX, 0, midZ);
+        tmp.rotation.set(0, angle, 0);
+        tmp.scale.set(1, 1, 1);
+        tmp.updateMatrix();
+        geo.applyMatrix4(tmp.matrix);
+        geo.computeVertexNormals();
+        geos.push(geo);
+      }
+    }
+    if (!geos.length) return null;
+    try { return mergeGeometries(geos); } catch { return geos[0]; }
+  }
+
+  // Build curved fillet — smooth quarter-circle arc at rib-skin junctions
+  function makeCurvedFilletGeo(segs: Seg[], rw: number, filletR: number): THREE.BufferGeometry | null {
+    if (!segs.length || filletR <= 0) return null;
+    const geos: THREE.BufferGeometry[] = [];
+    const fr = filletR, halfW = rw / 2, tmp = new THREE.Object3D(), SEGS = 6;
+    for (const s of segs) {
+      const dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+      const len = Math.sqrt(dx * dx + dz * dz);
+      if (len < 0.5) continue;
+      const midX = (s.x1 + s.x2) / 2, midZ = (s.z1 + s.z2) / 2;
+      const angle = Math.atan2(-dz, dx), hl = len / 2;
+      for (const side of [-1, 1]) {
+        const zo = side * halfW;
+        const verts: number[] = [];
+        for (let i = 0; i < SEGS; i++) {
+          const a0 = (Math.PI / 2) * i / SEGS, a1 = (Math.PI / 2) * (i + 1) / SEGS;
+          const y0 = fr * Math.sin(a0), z0 = zo + side * fr * (1 - Math.cos(a0));
+          const y1 = fr * Math.sin(a1), z1 = zo + side * fr * (1 - Math.cos(a1));
+          // Two triangles per segment strip (front to back)
+          verts.push(-hl, y0, z0,  -hl, y1, z1,  hl, y0, z0);
+          verts.push(hl, y0, z0,   -hl, y1, z1,  hl, y1, z1);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+        tmp.position.set(midX, 0, midZ);
+        tmp.rotation.set(0, angle, 0);
+        tmp.scale.set(1, 1, 1);
+        tmp.updateMatrix();
+        geo.applyMatrix4(tmp.matrix);
+        geo.computeVertexNormals();
+        geos.push(geo);
+      }
+    }
+    if (!geos.length) return null;
+    try { return mergeGeometries(geos); } catch { return geos[0]; }
+  }
+
   // Face detection
   function detectFaces(geometry: THREE.BufferGeometry) {
     let geo = geometry; if (geo.index) geo = geo.toNonIndexed();
@@ -530,6 +590,42 @@ export default function Studio() {
     const B0 = N.clone().cross(T0).normalize();
     const pos = modelMeshRef.current?.geometry?.attributes?.position?.array as Float32Array | undefined;
     if (fg && pos) {
+      // Find boundary edges and align T to the longest one
+      // This ensures the grid is parallel to at least one face edge
+      const P = 100;
+      const edgeCounts = new Map<string, { dx: number; dy: number; dz: number; len: number }>();
+      for (const ti of fg.tris) {
+        for (let e = 0; e < 3; e++) {
+          const o1 = ti * 9 + e * 3, o2 = ti * 9 + ((e + 1) % 3) * 3;
+          const ka = `${Math.round(pos[o1]*P)},${Math.round(pos[o1+1]*P)},${Math.round(pos[o1+2]*P)}`;
+          const kb = `${Math.round(pos[o2]*P)},${Math.round(pos[o2+1]*P)},${Math.round(pos[o2+2]*P)}`;
+          const key = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+          const existing = edgeCounts.get(key);
+          if (existing) { (existing as any).count = ((existing as any).count || 1) + 1; }
+          else {
+            const dx = pos[o2] - pos[o1], dy = pos[o2+1] - pos[o1+1], dz = pos[o2+2] - pos[o1+2];
+            const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            edgeCounts.set(key, { dx, dy, dz, len, count: 1 } as any);
+          }
+        }
+      }
+      // Boundary edges appear only once; find the longest one
+      let bestLen = 0, bestDir = new THREE.Vector3();
+      for (const edge of edgeCounts.values()) {
+        if ((edge as any).count === 1 && edge.len > bestLen) {
+          bestLen = edge.len;
+          bestDir.set(edge.dx, edge.dy, edge.dz).normalize();
+        }
+      }
+      if (bestLen > 0) {
+        // Project the edge direction onto the face plane (remove normal component)
+        const projT = bestDir.clone().sub(N.clone().multiplyScalar(bestDir.dot(N))).normalize();
+        if (projT.length() > 0.01) {
+          const T = projT.normalize();
+          return { T, B: N.clone().cross(T).normalize(), N };
+        }
+      }
+      // Fallback to PCA if no boundary edges found
       const v = new THREE.Vector3(); let cxx = 0, cxz = 0, czz = 0, n = 0;
       for (const ti of fg.tris) for (let k = 0; k < 3; k++) {
         const o = ti * 9 + k * 3; v.set(pos[o] - centroid.x, pos[o + 1] - centroid.y, pos[o + 2] - centroid.z);
@@ -637,6 +733,8 @@ export default function Studio() {
     const _nodeHole = (S as any).nodeHole ?? false;
     const _nodeHoleDia = (S as any).nodeHoleDia ?? 3;
     const _wallEnabled = (S as any).wallEnabled ?? true;
+    const _cornerMode = (S as any).cornerMode ?? "fillet";
+    const _cornerRadius = (S as any).cornerRadius ?? 1.5;
     if (rw >= cs / 2) { setRibError(true); notify("Rib width exceeds cell size", "warn"); return; }
     setRibError(false);
     const selectedIds = Array.from(S.selectedFaceIds), isDemo = !S.modelLoaded || selectedIds.length === 0;
@@ -666,12 +764,27 @@ export default function Studio() {
         const wallGeo = makeBoundingWall(combinedBounds, rw, rh);
         if (wallGeo) allGeos.push(wallGeo);
       }
+      // Corner relief geometry at rib-skin junctions
+      if (_cornerMode !== "none" && _cornerRadius > 0) {
+        const clampedR = Math.min(_cornerRadius, rw / 2, rh / 2);
+        if (_cornerMode === "chamfer") {
+          const chamferGeo = makeFilletGeo(finalSegs, rw, clampedR);
+          if (chamferGeo) allGeos.push(chamferGeo);
+        } else {
+          const filletGeo = makeCurvedFilletGeo(finalSegs, rw, clampedR);
+          if (filletGeo) allGeos.push(filletGeo);
+        }
+      }
       if (allGeos.length > 0) {
         const g = subGroup || gridGroup;
-        let merged: THREE.BufferGeometry;
-        try { merged = allGeos.length > 1 ? mergeGeometries(allGeos) : allGeos[0]; } catch { merged = allGeos[0]; }
-        const rm = new THREE.Mesh(merged, ribMat.current.clone());
-        g.add(rm);
+        // Ensure all geometries are non-indexed for compatible merging
+        const compatGeos = allGeos.map(geo => geo.index ? geo.toNonIndexed() : geo);
+        let merged: THREE.BufferGeometry | null = null;
+        try { merged = compatGeos.length > 1 ? mergeGeometries(compatGeos) : compatGeos[0]; } catch { merged = compatGeos[0]; }
+        if (merged) {
+          const rm = new THREE.Mesh(merged, ribMat.current.clone());
+          g.add(rm);
+        }
       }
     };
     if (isDemo) {
@@ -753,8 +866,10 @@ export default function Studio() {
     stRef.current.dm = dm; stRef.current.ns = ns; stRef.current.nd = nd; stRef.current.mat = mat;
     (stRef.current as any).nodeHole = nodeHole; (stRef.current as any).nodeHoleDia = nodeHoleDia;
     (stRef.current as any).wallEnabled = wallEnabled;
+    (stRef.current as any).cornerMode = cornerMode;
+    (stRef.current as any).cornerRadius = cornerRadius;
     regenerate();
-  }, [shape, cs, rw, rd, st, rot, dm, ns, nd, mat, nodeHole, nodeHoleDia, wallEnabled, regenerate]);
+  }, [shape, cs, rw, rd, st, rot, dm, ns, nd, mat, nodeHole, nodeHoleDia, wallEnabled, cornerMode, cornerRadius, regenerate]);
 
   const loadModel = useCallback((geometry: THREE.BufferGeometry) => {
     const scene = sceneRef.current, camera = cameraRef.current, controls = controlsRef.current;
@@ -1023,12 +1138,163 @@ export default function Studio() {
     let gizmoR: THREE.WebGLRenderer;
     try { gizmoR = new THREE.WebGLRenderer({ canvas: gc, alpha: true, antialias: true }); }
     catch { renderer.dispose(); return; }
-    gizmoR.setPixelRatio(Math.min(devicePixelRatio, 2)); gizmoR.setClearColor(0, 0); gizmoR.setSize(60, 60);
-    const gizmoS = new THREE.Scene(), gizmoC = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-    gizmoC.position.set(0, 0, 3);
-    gizmoS.add(new THREE.AxesHelper(1));
-    [0xe05050, 0x50b050, 0x4478cc].forEach((c, i) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: c })); m.position.setComponent(i, 1.1); gizmoS.add(m); });
+    const vcSize = 120;
+    gizmoR.setPixelRatio(Math.min(devicePixelRatio, 2)); gizmoR.setClearColor(0, 0); gizmoR.setSize(vcSize, vcSize);
+    const gizmoS = new THREE.Scene(), gizmoC = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    gizmoC.position.set(0, 0, 4);
+    gizmoS.add(new THREE.AmbientLight(0xffffff, 0.7));
+    gizmoS.add(new THREE.DirectionalLight(0xffffff, 0.5));
+
+    // ViewCube face textures
+    function makeVCTex(text: string) {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = '#2a2520'; ctx.fillRect(0, 0, 128, 128);
+      ctx.strokeStyle = '#4e4638'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, 126, 126);
+      ctx.fillStyle = '#b09c80'; ctx.font = 'bold 22px Inter, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 64, 64);
+      const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter; return tex;
+    }
+    const vcMats = [
+      new THREE.MeshBasicMaterial({ map: makeVCTex('RIGHT') }),
+      new THREE.MeshBasicMaterial({ map: makeVCTex('LEFT') }),
+      new THREE.MeshBasicMaterial({ map: makeVCTex('TOP') }),
+      new THREE.MeshBasicMaterial({ map: makeVCTex('BOTTOM') }),
+      new THREE.MeshBasicMaterial({ map: makeVCTex('FRONT') }),
+      new THREE.MeshBasicMaterial({ map: makeVCTex('BACK') }),
+    ];
+    const vcCube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), vcMats);
+    vcCube.userData = { type: 'face' };
+    gizmoS.add(vcCube);
+    // Edges
+    const vcEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x6a5c44 }));
+    gizmoS.add(vcEdges);
+    // Chamfered corners for iso views
+    const cornerDirs = [
+      [1,1,1],[-1,1,1],[1,1,-1],[-1,1,-1],[1,-1,1],[-1,-1,1],[1,-1,-1],[-1,-1,-1]
+    ].map(d => d.map(v => v));
+    const vcCorners: THREE.Mesh[] = [];
+    const cMat = new THREE.MeshBasicMaterial({ color: 0x3a3530, side: THREE.DoubleSide });
+    const cMatHover = new THREE.MeshBasicMaterial({ color: 0xcc8822, side: THREE.DoubleSide });
+    for (const dir of cornerDirs) {
+      const [sx, sy, sz] = dir;
+      const cs2 = 0.14, h = 0.5;
+      const cx = sx * h, cy = sy * h, cz = sz * h;
+      const px = cx - sx * cs2, py = cy - sy * cs2, pz = cz - sz * cs2;
+      const positions = new Float32Array([
+        px, cy, cz,  cx, py, cz,  cx, cy, pz,
+      ]);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, cMat.clone());
+      mesh.userData = { type: 'corner', dir: [sx, sy, sz] };
+      gizmoS.add(mesh); vcCorners.push(mesh);
+    }
     gizmoRRef.current = gizmoR; gizmoSRef.current = gizmoS; gizmoCRef.current = gizmoC;
+
+    // ViewCube interaction state
+    const vcRay = new THREE.Raycaster();
+    const vcMouse = new THREE.Vector2();
+    let vcHovered: THREE.Mesh | null = null;
+    let vcAnimating = false;
+    let vcTargetPos = new THREE.Vector3();
+    let vcDragging = false, vcDragStart = { x: 0, y: 0 };
+
+    // View directions: face normal * distance
+    const viewDist = () => {
+      const t = controlsRef.current?.target || new THREE.Vector3();
+      return camera.position.distanceTo(t);
+    };
+    const faceViews: Record<string, [number,number,number]> = {
+      RIGHT:  [1,0,0], LEFT: [-1,0,0], TOP: [0,1,0], BOTTOM: [0,-1,0], FRONT: [0,0,1], BACK: [0,0,-1]
+    };
+
+    function snapToView(dir: number[]) {
+      const d = viewDist();
+      const target = controlsRef.current?.target || new THREE.Vector3();
+      vcTargetPos.set(target.x + dir[0] * d, target.y + dir[1] * d, target.z + dir[2] * d);
+      vcAnimating = true;
+    }
+
+    function onVCMouseMove(e: MouseEvent) {
+      const rect = gc.getBoundingClientRect();
+      vcMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      vcMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      vcRay.setFromCamera(vcMouse, gizmoC);
+      const allMeshes = [vcCube, ...vcCorners];
+      const hits = vcRay.intersectObjects(allMeshes);
+      // Reset hover
+      if (vcHovered && vcHovered !== vcCube) {
+        (vcHovered.material as THREE.MeshBasicMaterial).color.set(0x3a3530);
+      }
+      vcHovered = null;
+      gc.style.cursor = 'default';
+      if (hits.length > 0) {
+        const hit = hits[0].object as THREE.Mesh;
+        vcHovered = hit;
+        gc.style.cursor = 'pointer';
+        if (hit.userData.type === 'corner') {
+          (hit.material as THREE.MeshBasicMaterial).color.set(0xcc8822);
+        }
+      }
+      // Drag rotation
+      if (vcDragging && controlsRef.current) {
+        const dx = e.clientX - vcDragStart.x, dy = e.clientY - vcDragStart.y;
+        const ctrl = controlsRef.current;
+        const azim = -dx * 0.01, polar = -dy * 0.01;
+        ctrl.minAzimuthAngle = -Infinity; ctrl.maxAzimuthAngle = Infinity;
+        const curAzim = ctrl.getAzimuthalAngle(), curPolar = ctrl.getPolarAngle();
+        // Rotate by manipulating camera position around target
+        const offset = camera.position.clone().sub(ctrl.target);
+        const spherical = new THREE.Spherical().setFromVector3(offset);
+        spherical.theta += azim; spherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, spherical.phi + polar));
+        offset.setFromSpherical(spherical);
+        camera.position.copy(ctrl.target).add(offset);
+        camera.lookAt(ctrl.target);
+        ctrl.update();
+        vcDragStart = { x: e.clientX, y: e.clientY };
+      }
+    }
+
+    function onVCMouseDown(e: MouseEvent) {
+      vcDragging = true; vcDragStart = { x: e.clientX, y: e.clientY };
+    }
+
+    function onVCMouseUp() {
+      vcDragging = false;
+    }
+
+    function onVCClick(e: MouseEvent) {
+      if (!vcHovered) return;
+      if (vcHovered === vcCube) {
+        // Determine which face was clicked
+        const rect = gc.getBoundingClientRect();
+        vcMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        vcMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        vcRay.setFromCamera(vcMouse, gizmoC);
+        const hits = vcRay.intersectObject(vcCube);
+        if (hits.length > 0) {
+          const fn = hits[0].face!.normal.clone();
+          // Map normal to view direction
+          let best = 'FRONT', bestDot = -Infinity;
+          for (const [name, dir] of Object.entries(faceViews)) {
+            const dot = fn.x * dir[0] + fn.y * dir[1] + fn.z * dir[2];
+            if (dot > bestDot) { bestDot = dot; best = name; }
+          }
+          snapToView(faceViews[best]);
+        }
+      } else if (vcHovered.userData.type === 'corner') {
+        const dir = vcHovered.userData.dir;
+        const len = Math.sqrt(dir[0]*dir[0] + dir[1]*dir[1] + dir[2]*dir[2]);
+        snapToView([dir[0]/len, dir[1]/len, dir[2]/len]);
+      }
+    }
+
+    gc.addEventListener('mousemove', onVCMouseMove);
+    gc.addEventListener('mousedown', onVCMouseDown);
+    gc.addEventListener('click', onVCClick);
+    window.addEventListener('mouseup', onVCMouseUp);
     const handleResize = () => { const w = vp.clientWidth, h = vp.clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     handleResize(); window.addEventListener("resize", handleResize);
     cv.addEventListener("mousemove", onMouseMove); cv.addEventListener("mousedown", onMouseDown); cv.addEventListener("click", onMouseClick);
@@ -1037,7 +1303,14 @@ export default function Studio() {
       controls.update();
       if (camLightRef.current) camLightRef.current.position.copy(camera.position);
       renderer.render(scene, camera);
-      gizmoC.position.copy(camera.position).normalize().multiplyScalar(3);
+      // ViewCube camera animation (smooth snap)
+      if (vcAnimating) {
+        camera.position.lerp(vcTargetPos, 0.12);
+        camera.lookAt(controls.target);
+        if (camera.position.distanceTo(vcTargetPos) < 0.5) { camera.position.copy(vcTargetPos); vcAnimating = false; }
+        controls.update();
+      }
+      gizmoC.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(4);
       gizmoC.lookAt(0, 0, 0); gizmoC.up.copy(camera.up);
       gizmoR.render(gizmoS, gizmoC);
     };
@@ -1045,6 +1318,8 @@ export default function Studio() {
     return () => {
       cancelAnimationFrame(animFrameRef.current); window.removeEventListener("resize", handleResize);
       cv.removeEventListener("mousemove", onMouseMove); cv.removeEventListener("mousedown", onMouseDown); cv.removeEventListener("click", onMouseClick);
+      gc.removeEventListener('mousemove', onVCMouseMove); gc.removeEventListener('mousedown', onVCMouseDown); gc.removeEventListener('click', onVCClick);
+      window.removeEventListener('mouseup', onVCMouseUp);
       renderer.dispose(); gizmoR.dispose();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1255,7 +1530,7 @@ export default function Studio() {
   };
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden ${!adDismissed ? 'has-ad-sidebar' : ''}`} style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--surface-1)", color: "var(--text-primary)" }}>
 
       {/* HEADER */}
       <header className="flex items-center justify-between px-4 shrink-0" style={{ ...S.header, height: 46 }}>
@@ -1277,7 +1552,7 @@ export default function Studio() {
             style={{ width: 30, height: 30, ...S.muted }}>
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <a href="https://buymemomo.com/NiteshNeupane" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded text-sm transition-colors hover:bg-black/10" style={{ ...S.border, ...S.muted, fontWeight: 500, textDecoration: "none", color: "var(--amber)", borderColor: "var(--amber)" }}>☕ Buy Me a Momo</a>
+          <a href="https://buymemomo.com/NiteshNeupane" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 h-8 rounded text-sm transition-colors hover:bg-black/10" style={{ ...S.border, ...S.muted, fontWeight: 500, textDecoration: "none", color: "var(--amber)", borderColor: "var(--amber)" }}>🥟 Buy Me a Momo</a>
           <button data-testid="btn-load" onClick={() => document.getElementById("file-input")?.click()}
             className="flex items-center gap-1.5 px-3 h-8 rounded text-sm transition-colors hover:bg-black/10"
             style={{ ...S.border, ...S.muted, fontWeight: 500 }}>
@@ -1351,6 +1626,18 @@ export default function Studio() {
                 <input type="checkbox" checked={wallEnabled} onChange={e => setWallEnabled(e.target.checked)} style={{ accentColor: "var(--amber)", width: 12, height: 12 }} />
                 Bounding wall
               </label>
+            </div>
+          </PanelSection>
+
+          {/* Corner Relief */}
+          <PanelSection id="fillet" label="Corner relief" collapsed={collapsed.has("fillet")} onToggle={() => toggleSec("fillet")}>
+            <div className="mb-2">
+              <FieldLabel>Style</FieldLabel>
+              <RadioRow name="cm" options={[{ v: "none", l: "None" }, { v: "chamfer", l: "Chamfer" }, { v: "fillet", l: "Fillet" }]} value={cornerMode} onChange={v => setCornerMode(v as "none" | "chamfer" | "fillet")} />
+            </div>
+            <div style={{ opacity: cornerMode === "none" ? .4 : 1, pointerEvents: cornerMode === "none" ? "none" : "auto", transition: "opacity .15s" }}>
+              <SliderRow label="Radius" unit="mm" value={cornerRadius} min={0.1} max={Math.min(rw / 2, rd / 2, 10)} step={0.1} onChange={setCornerRadius} testId="cr" />
+              <p style={{ fontSize: 9.5, color: "var(--text-dim)", lineHeight: 1.5, marginTop: 4 }}>{cornerMode === "chamfer" ? "45° flat cut" : "Smooth arc"} at rib–skin junctions for CNC milling.</p>
             </div>
           </PanelSection>
 
@@ -1428,24 +1715,7 @@ export default function Studio() {
             )}
           </PanelSection>
 
-          {/* Presets */}
-          <PanelSection id="pre" label="Presets" collapsed={collapsed.has("pre")} onToggle={() => toggleSec("pre")}>
-            <div className="flex flex-col gap-1.5">
-              {[
-                { id: "nasa",  title: "NASA standard",  desc: "L 25 · b 2 · h 8 · t 1.5 mm" },
-                { id: "light", title: "Lightweight",     desc: "L 40 · b 1.5 · h 6 · t 1 mm" },
-                { id: "stiff", title: "Stiff panel",     desc: "L 15 · b 3 · h 10 · t 2.5 mm" },
-              ].map(p => (
-                <button key={p.id} data-testid={`preset-${p.id}`}
-                  onClick={() => { const pr = PRESETS[p.id]; setCs(pr.cs); setRw(pr.rw); setRd(pr.rd); setSt(pr.st); setShape(pr.shape); notify("Preset applied", "ok", 1500); }}
-                  className="text-left px-3 py-2 rounded transition-colors hover:border-amber-500"
-                  style={{ background: "var(--surface-1)", border: "1px solid var(--border-c)" }}>
-                  <div style={{ fontWeight: 500, fontSize: 12.5, color: "var(--text-primary)", marginBottom: 2 }}>{p.title}</div>
-                  <div style={{ ...S.dim, fontSize: 10.5, fontFamily: "var(--font-mono)" }}>{p.desc}</div>
-                </button>
-              ))}
-            </div>
-          </PanelSection>
+
 
         </div>
 
@@ -1536,9 +1806,9 @@ export default function Studio() {
             ))}
           </div>
 
-          {/* Gizmo */}
-          <div className="absolute bottom-14 right-2 z-10 pointer-events-none" style={{ width: 60, height: 60, opacity: .6 }}>
-            <canvas ref={gizmoCanvasRef} width={120} height={120} style={{ width: "100%", height: "100%" }} />
+          {/* ViewCube */}
+          <div className="viewcube-wrap absolute bottom-14 right-2 z-10" style={{ width: 120, height: 120 }}>
+            <canvas ref={gizmoCanvasRef} width={240} height={240} style={{ width: "100%", height: "100%" }} />
           </div>
         </div>
       </div>
@@ -1600,29 +1870,7 @@ export default function Studio() {
 
       {showExportMenu && <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />}
 
-      {/* AD SIDEBAR */}
-      {!adDismissed && (
-        <aside className="ad-sidebar" id="ad-sidebar">
-          <span className="ad-label">Sponsored</span>
-          <button className="ad-close" onClick={() => setAdDismissed(true)} title="Close ad">&times;</button>
-          <div className="ad-slot" id="ad-slot">
-            <ins className="adsbygoogle"
-                 style={{ display: 'inline-block', width: 160, height: 600 }}
-                 data-ad-client="ca-pub-6497701089961965"
-                 data-ad-slot="auto" />
-          </div>
-        </aside>
-      )}
 
-      {/* ADBLOCKER NOTICE */}
-      {adblockNotice && !adblockDismissed && (
-        <div className="adblock-notice" id="adblock-notice">
-          <button className="abn-close" onClick={() => setAdblockDismissed(true)} title="Dismiss">&times;</button>
-          <div className="abn-title"><span>🛡️</span> Ad Blocker Detected</div>
-          <p className="abn-msg">Hey! It looks like you're using an ad blocker. This tool is <strong>100% free</strong> and ads help keep it that way. Consider whitelisting this site to support development. 🙏</p>
-          <button className="abn-dismiss" onClick={() => setAdblockDismissed(true)}>Got it, thanks!</button>
-        </div>
-      )}
     </div>
   );
 }
